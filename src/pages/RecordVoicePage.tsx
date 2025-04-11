@@ -124,7 +124,11 @@ const RecordVoicePage = () => {
                   <span className="text-sm text-muted-foreground">Recording...</span>
                   <span className="text-sm font-medium">{recordingTime}s / {maxRecordingTime}s</span>
                 </div>
-                <Progress value={(recordingTime / maxRecordingTime) * 100} className="h-2" indicatorClassName="bg-rage-danger" />
+                <Progress 
+                  value={(recordingTime / maxRecordingTime) * 100} 
+                  className="h-2" 
+                  indicatorClassName="bg-rage-danger" 
+                />
                 
                 <Button 
                   onClick={stopRecording}
