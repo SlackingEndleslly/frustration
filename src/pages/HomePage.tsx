@@ -12,7 +12,7 @@ const HomePage = () => {
       <div className="flex flex-col items-center justify-center max-w-md mx-auto text-center">
         <div className="rage-card mb-8 animate-float">
           <h1 className="text-5xl md:text-6xl font-bold mb-4 text-gradient bg-gradient-to-r from-rage via-rage-accent to-rage-highlight bg-clip-text text-transparent">
-            BUDDY BEAT
+            FRUSTRATION
           </h1>
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-rage-accent">
             RAGE FEST

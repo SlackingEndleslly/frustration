@@ -12,18 +12,18 @@ import { Upload, Image as ImageIcon } from "lucide-react";
 const PREMADE_BUDDIES: BuddyImage[] = [
   {
     id: "buddy-1",
-    src: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?auto=format&fit=crop&w=500&h=500",
-    alt: "Buddy 1",
+    src: "https://i.imgur.com/S2P0KqD.png", // Stickman
+    alt: "Stickman Buddy",
   },
   {
     id: "buddy-2",
-    src: "https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&w=500&h=500",
-    alt: "Buddy 2",
+    src: "https://i.imgur.com/lKXPMvJ.png", // Ragdoll
+    alt: "Ragdoll Buddy",
   },
   {
     id: "buddy-3",
-    src: "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?auto=format&fit=crop&w=500&h=500",
-    alt: "Buddy 3",
+    src: "https://i.imgur.com/wjobVLU.png", // Paper doll
+    alt: "Paper Buddy",
   },
 ];
 

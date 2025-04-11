@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -14,11 +14,30 @@ const RecordVoicePage = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const maxRecordingTime = 10; // in seconds
+  const maxRecordingTime = 30; // Extended to 30 seconds
+  
+  useEffect(() => {
+    // Create audio element for controlled playback
+    if (audioUrl && !audioRef.current) {
+      const audio = new Audio(audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audioRef.current = audio;
+    }
+    
+    // Cleanup function
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [audioUrl]);
 
   const startRecording = async () => {
     try {
@@ -83,9 +102,14 @@ const RecordVoicePage = () => {
   };
   
   const playRecording = () => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audio.play();
+    if (audioUrl && audioRef.current && !isPlaying) {
+      // Stop any currently playing audio first
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      
+      // Play the audio and update state
+      audioRef.current.play();
+      setIsPlaying(true);
     }
   };
   
@@ -154,11 +178,12 @@ const RecordVoicePage = () => {
               <div className="w-full">
                 <Button 
                   onClick={playRecording}
+                  disabled={isPlaying}
                   variant="outline" 
                   className="w-full flex items-center justify-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  <span>Play Recording</span>
+                  <span>{isPlaying ? "Playing..." : "Play Recording"}</span>
                   <Volume2 className="h-4 w-4 ml-1 text-rage" />
                 </Button>
               </div>
@@ -169,6 +194,11 @@ const RecordVoicePage = () => {
                 onClick={() => {
                   setAudioUrl(null);
                   setRecordingTime(0);
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current = null;
+                  }
+                  setIsPlaying(false);
                 }}
                 variant="ghost"
                 className="text-sm text-muted-foreground hover:text-white"

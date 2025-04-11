@@ -15,30 +15,23 @@ const ATTACK_OPTIONS = [
 
 const GamePage = () => {
   const navigate = useNavigate();
-  const { buddyImage, voiceRecording, health, maxHealth, damage, resetGame, isGameOver } = useGame();
+  const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
   
   useEffect(() => {
-    // Redirect if buddy image or voice recording is missing
-    if (!buddyImage || !voiceRecording) {
+    // Redirect if buddy image is missing
+    if (!buddyImage) {
       navigate("/");
     }
-  }, [buddyImage, voiceRecording, navigate]);
-  
-  const playAttackSound = () => {
-    if (voiceRecording) {
-      const audio = new Audio(voiceRecording);
-      audio.play();
-    }
-  };
+  }, [buddyImage, navigate]);
   
   const handleAttack = (attackId: string, damageAmount: number) => {
     if (isAnimating || isGameOver) return;
     
     setActiveAttack(attackId);
     setIsAnimating(true);
-    playAttackSound();
+    // Removed audio playback line
     
     // Apply damage after a short delay
     setTimeout(() => {
@@ -59,7 +52,7 @@ const GamePage = () => {
     return "bg-rage-danger";
   };
   
-  if (!buddyImage || !voiceRecording) {
+  if (!buddyImage) {
     return null; // Will redirect in useEffect
   }
   
