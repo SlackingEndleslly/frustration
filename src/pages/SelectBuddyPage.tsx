@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -67,6 +66,12 @@ const SelectBuddyPage = () => {
     }
   };
 
+  const handleImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, buddyId: string) => {
+    console.log(`Image load error for buddy ${buddyId}`);
+    event.currentTarget.src = `https://placehold.co/200x200/FF6B6B/ffffff?text=Buddy+${buddyId.split('-')[1]}`;
+    event.currentTarget.alt = `Fallback Buddy ${buddyId.split('-')[1]}`;
+  };
+
   return (
     <Layout title="SELECT YOUR BUDDY">
       <div className={`rage-card w-full mx-auto ${isMobile ? 'max-w-full' : 'max-w-md'}`}>
@@ -94,6 +99,9 @@ const SelectBuddyPage = () => {
                 src={uploadedImage.src} 
                 alt={uploadedImage.alt} 
                 className="object-contain w-full h-full"
+                onError={(e) => {
+                  e.currentTarget.src = "https://placehold.co/200x200/FF6B6B/ffffff?text=Your+Buddy";
+                }}
               />
             </div>
           )}
@@ -123,7 +131,8 @@ const SelectBuddyPage = () => {
                     src={buddy.src} 
                     alt={buddy.alt} 
                     className="object-contain w-full h-full" 
-                    onClick={() => setSelectedBuddyId(buddy.id)} 
+                    onClick={() => setSelectedBuddyId(buddy.id)}
+                    onError={(e) => handleImageError(e, buddy.id)}
                   />
                 </div>
                 <RadioGroupItem 
