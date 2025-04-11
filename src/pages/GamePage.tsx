@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,16 +8,19 @@ import { useGame } from "@/contexts/GameContext";
 import { Heart, Zap, Hammer, Flame, RotateCcw } from "lucide-react";
 
 const ATTACK_OPTIONS = [
-  { id: "punch", label: "Punch", icon: <Zap className="h-5 w-5" />, damage: 10 },
-  { id: "kick", label: "Kick", icon: <Flame className="h-5 w-5" />, damage: 15 },
-  { id: "hammer", label: "Hammer", icon: <Hammer className="h-5 w-5" />, damage: 20 },
+  { id: "punch", label: "Punch", icon: <Zap className="h-5 w-5" />, damage: 10, sound: "https://assets.mixkit.co/active_storage/sfx/214/214-preview.mp3" },
+  { id: "kick", label: "Kick", icon: <Flame className="h-5 w-5" />, damage: 15, sound: "https://assets.mixkit.co/active_storage/sfx/2027/2027-preview.mp3" },
+  { id: "hammer", label: "Hammer", icon: <Hammer className="h-5 w-5" />, damage: 20, sound: "https://assets.mixkit.co/active_storage/sfx/1647/1647-preview.mp3" },
 ];
+
+const DEFEAT_SOUND = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3";
 
 const GamePage = () => {
   const navigate = useNavigate();
   const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   useEffect(() => {
     // Redirect if buddy image is missing
@@ -26,12 +29,25 @@ const GamePage = () => {
     }
   }, [buddyImage, navigate]);
   
-  const handleAttack = (attackId: string, damageAmount: number) => {
+  useEffect(() => {
+    // Play defeat sound when health reaches zero
+    if (isGameOver && audioRef.current) {
+      audioRef.current.src = DEFEAT_SOUND;
+      audioRef.current.play();
+    }
+  }, [isGameOver]);
+  
+  const handleAttack = (attackId: string, damageAmount: number, soundUrl: string) => {
     if (isAnimating || isGameOver) return;
     
     setActiveAttack(attackId);
     setIsAnimating(true);
-    // Removed audio playback line
+    
+    // Play attack sound
+    if (audioRef.current) {
+      audioRef.current.src = soundUrl;
+      audioRef.current.play();
+    }
     
     // Apply damage after a short delay
     setTimeout(() => {
@@ -102,7 +118,7 @@ const GamePage = () => {
             {ATTACK_OPTIONS.map((attack) => (
               <Button
                 key={attack.id}
-                onClick={() => handleAttack(attack.id, attack.damage)}
+                onClick={() => handleAttack(attack.id, attack.damage, attack.sound)}
                 className={`
                   p-3 h-auto flex flex-col items-center gap-1 transition-all duration-300
                   ${activeAttack === attack.id ? "bg-rage-accent scale-95" : "bg-rage hover:bg-rage-accent"}
@@ -144,6 +160,9 @@ const GamePage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Audio element for playing sounds */}
+      <audio ref={audioRef} />
     </Layout>
   );
 };
