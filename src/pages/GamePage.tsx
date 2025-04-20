@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -20,17 +19,16 @@ const GamePage = () => {
   const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
+  const [attackAnimation, setAttackAnimation] = useState<string>("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   useEffect(() => {
-    // Redirect if buddy image is missing
     if (!buddyImage) {
       navigate("/");
     }
   }, [buddyImage, navigate]);
   
   useEffect(() => {
-    // Play defeat sound when health reaches zero
     if (isGameOver && audioRef.current) {
       audioRef.current.src = DEFEAT_SOUND;
       audioRef.current.play();
@@ -43,20 +41,24 @@ const GamePage = () => {
     setActiveAttack(attackId);
     setIsAnimating(true);
     
-    // Play attack sound
+    if (attackId === "punch") {
+      setAttackAnimation("animate-zoom");
+    } else if (attackId === "kick") {
+      setAttackAnimation("animate-bounce-off");
+    }
+    
     if (audioRef.current) {
       audioRef.current.src = soundUrl;
       audioRef.current.play();
     }
     
-    // Apply damage after a short delay
     setTimeout(() => {
       damage(damageAmount);
       
-      // Reset animation state
       setTimeout(() => {
         setIsAnimating(false);
         setActiveAttack(null);
+        setAttackAnimation("");
       }, 300);
     }, 200);
   };
@@ -69,7 +71,7 @@ const GamePage = () => {
   };
   
   if (!buddyImage) {
-    return null; // Will redirect in useEffect
+    return null;
   }
   
   return (
@@ -96,7 +98,7 @@ const GamePage = () => {
         
         <div className="mb-8">
           <div 
-            className={`buddy-container w-3/4 mx-auto overflow-hidden ${isAnimating ? "animate-shake" : ""} ${isGameOver ? "opacity-50" : ""}`}
+            className={`buddy-container w-3/4 mx-auto overflow-hidden ${isAnimating ? attackAnimation : ""} ${isGameOver ? "opacity-50" : ""}`}
           >
             <img 
               src={buddyImage.src} 
@@ -161,7 +163,6 @@ const GamePage = () => {
         </div>
       </div>
 
-      {/* Audio element for playing sounds */}
       <audio ref={audioRef} />
     </Layout>
   );
