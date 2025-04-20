@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,18 +13,18 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const PREMADE_BUDDIES: BuddyImage[] = [
   {
     id: "buddy-1",
-    src: "https://i.imgur.com/S2P0KqD.png", // Stickman
-    alt: "Stickman Buddy",
+    src: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZG9sbHxlbnwwfHwwfHx8MA%3D%3D", // Blue robot/doll
+    alt: "Blue Buddy",
   },
   {
     id: "buddy-2",
-    src: "https://i.imgur.com/lKXPMvJ.png", // Ragdoll
-    alt: "Ragdoll Buddy",
+    src: "https://images.unsplash.com/photo-1501286353178-1ec881214838?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8ZG9sbHxlbnwwfHwwfHx8MA%3D%3D", // Playful monkey-like doll
+    alt: "Playful Buddy",
   },
   {
     id: "buddy-3",
-    src: "https://i.imgur.com/wjobVLU.png", // Paper doll
-    alt: "Paper Buddy",
+    src: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8ZG9sbHxlbnwwfHwwfHx8MA%3D%3D", // White robot/doll
+    alt: "White Buddy",
   },
 ];
 
