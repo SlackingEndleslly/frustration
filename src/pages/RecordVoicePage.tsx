@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
-import { Mic, Square, Play, Volume2 } from "lucide-react";
+import { Mic, Play, Pause, Volume2 } from "lucide-react";
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -15,22 +15,26 @@ const RecordVoicePage = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
-  const maxRecordingTime = 30; // Extended to 30 seconds
-  
+
+  const maxRecordingTime = 30; // 30 seconds only
+
   useEffect(() => {
-    // Create audio element for controlled playback
+    // Create new Audio for playback
     if (audioUrl && !audioRef.current) {
       const audio = new Audio(audioUrl);
-      audio.onended = () => setIsPlaying(false);
+      audio.onended = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+      };
       audioRef.current = audio;
     }
-    
-    // Cleanup function
+
+    // Clean up audio if component is unmounted or URL changes
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -39,80 +43,129 @@ const RecordVoicePage = () => {
     };
   }, [audioUrl]);
 
+  // Cleanup on unmount so record/play logic is correct
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
-      
+
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
         setIsRecording(false);
-        
+
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
+        const tracks = mediaRecorder.stream.getTracks();
+        tracks.forEach(track => track.stop());
       };
-      
+
       setIsRecording(true);
       setRecordingTime(0);
+      setAudioUrl(null);
       mediaRecorder.start();
-      
+
+      // Only allow recording for exactly 30 seconds, can't stop early
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           const newTime = prev + 1;
           if (newTime >= maxRecordingTime) {
-            stopRecording();
+            // Stop only here!
+            mediaRecorderRef.current?.stop();
+            setIsRecording(false);
+            clearInterval(timerRef.current as NodeJS.Timeout);
+            timerRef.current = null;
+            toast.success("Recording stopped after 30s!");
             return maxRecordingTime;
           }
           return newTime;
         });
       }, 1000);
-      
+
       toast.success("Recording started!");
     } catch (error) {
       console.error("Error accessing microphone:", error);
       toast.error("Could not access microphone. Please check permissions.");
     }
   };
-  
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+
+  // remove stopRecording function since stopping manually is not allowed anymore
+
+  const handlePlayPause = () => {
+    if (audioUrl && audioRef.current) {
+      if (isPlaying && !isPaused) {
+        // PAUSE
+        audioRef.current.pause();
+        setIsPaused(true);
+      } else if (isPaused) {
+        // RESUME
+        audioRef.current.play();
+        setIsPaused(false);
+      } else {
+        // PLAY
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+        setIsPlaying(true);
+        setIsPaused(false);
       }
-      
-      const tracks = mediaRecorderRef.current.stream.getTracks();
-      tracks.forEach(track => track.stop());
-      
-      toast.success("Recording stopped!");
     }
   };
-  
-  const playRecording = () => {
-    if (audioUrl && audioRef.current && !isPlaying) {
-      // Stop any currently playing audio first
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      
-      // Play the audio and update state
-      audioRef.current.play();
-      setIsPlaying(true);
+
+  // Update playing/paused state if user interacts with the Audio element
+  useEffect(() => {
+    if (audioRef.current) {
+      const onEnded = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+      };
+
+      const onPlay = () => {
+        setIsPlaying(true);
+        setIsPaused(false);
+      };
+
+      const onPause = () => {
+        if (audioRef.current) {
+          // only set isPaused if pause before end
+          if (audioRef.current.currentTime !== audioRef.current.duration) {
+            setIsPaused(true);
+            setIsPlaying(true);
+          }
+        }
+      };
+
+      audioRef.current.onended = onEnded;
+      audioRef.current.onplay = onPlay;
+      audioRef.current.onpause = onPause;
     }
-  };
-  
+  }, [audioUrl]);
+
   const handleContinue = () => {
     if (audioUrl) {
       setVoiceRecording(audioUrl);
@@ -121,7 +174,7 @@ const RecordVoicePage = () => {
       toast.error("Please record your rage sound first!");
     }
   };
-  
+
   return (
     <Layout title="RECORD YOUR RAGE">
       <div className="rage-card max-w-md w-full mx-auto">
@@ -134,13 +187,13 @@ const RecordVoicePage = () => {
             />
           </div>
         )}
-        
+
         <div className="mb-6">
           <h3 className="text-xl font-medium mb-4 text-center">Record Your Battle Cry</h3>
           <p className="text-sm text-muted-foreground mb-6 text-center">
             Let your buddy know how you feel! Record a rage sound that will play when you attack.
           </p>
-          
+
           <div className="flex flex-col items-center gap-4">
             {isRecording ? (
               <div className="w-full space-y-4">
@@ -153,14 +206,15 @@ const RecordVoicePage = () => {
                   className="h-2" 
                   indicatorClassName="bg-rage-danger" 
                 />
-                
+
+                {/* No stop recording button anymore */}
                 <Button 
-                  onClick={stopRecording}
+                  disabled={true}
                   variant="destructive"
-                  className="w-full flex items-center justify-center gap-2"
+                  className="w-full flex items-center justify-center gap-2 opacity-40 pointer-events-none"
                 >
-                  <Square className="h-4 w-4" />
-                  <span>Stop Recording</span>
+                  <Mic className="h-4 w-4" />
+                  <span>Recording... (Wait 30s)</span>
                 </Button>
               </div>
             ) : (
@@ -173,22 +227,30 @@ const RecordVoicePage = () => {
                 <span>Start Recording</span>
               </Button>
             )}
-            
+
             {audioUrl && (
-              <div className="w-full">
+              <div className="w-full flex flex-row gap-2">
                 <Button 
-                  onClick={playRecording}
-                  disabled={isPlaying}
+                  onClick={handlePlayPause}
                   variant="outline" 
                   className="w-full flex items-center justify-center gap-2"
                 >
-                  <Play className="h-4 w-4" />
-                  <span>{isPlaying ? "Playing..." : "Play Recording"}</span>
+                  {isPlaying && !isPaused ? (
+                    <>
+                      <Pause className="h-4 w-4" />
+                      <span>Pause</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      <span>Play Recording</span>
+                    </>
+                  )}
                   <Volume2 className="h-4 w-4 ml-1 text-rage" />
                 </Button>
               </div>
             )}
-            
+
             {audioUrl && (
               <Button 
                 onClick={() => {
@@ -199,6 +261,7 @@ const RecordVoicePage = () => {
                     audioRef.current = null;
                   }
                   setIsPlaying(false);
+                  setIsPaused(false);
                 }}
                 variant="ghost"
                 className="text-sm text-muted-foreground hover:text-white"
@@ -208,7 +271,7 @@ const RecordVoicePage = () => {
             )}
           </div>
         </div>
-        
+
         <div className="flex justify-between">
           <Button 
             onClick={() => navigate("/select-buddy")}
