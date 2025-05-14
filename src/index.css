@@ -82,17 +82,15 @@
   }
   
   .punch-effect {
-    @apply right-0 top-1/2 transform -translate-y-1/2;
-    animation-name: punchAnimation;
-    max-width: 50%;
-    max-height: 50%;
+    @apply absolute right-0 top-1/2 z-10 max-w-[50%] max-h-[50%] pointer-events-none;
+    animation: punchAnimation 0.5s forwards;
+    transform: translateY(-50%);
   }
   
   .kick-effect {
-    @apply left-0 top-1/2 transform -translate-y-1/2;
-    animation-name: kickAnimation;
-    max-width: 60%;
-    max-height: 60%;
+    @apply absolute left-0 top-1/2 z-10 max-w-[60%] max-h-[60%] pointer-events-none;
+    animation: kickAnimation 0.5s forwards;
+    transform: translateY(-50%);
   }
   
   @keyframes zoom-attack {
@@ -106,6 +104,13 @@
     50% { transform: translateX(100%); }
     75% { transform: translateX(-10%); }
     100% { transform: translateX(0); }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(5deg); }
   }
   
   @keyframes punchAnimation {
@@ -126,5 +131,9 @@
   
   .animate-bounce-off {
     animation: bounce-off 0.5s ease-in-out;
+  }
+  
+  .animate-shake {
+    animation: shake 0.3s ease-in-out;
   }
 }

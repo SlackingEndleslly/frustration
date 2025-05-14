@@ -21,17 +21,21 @@ const GamePage = () => {
   const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
-  const [attackAnimation, setAttackAnimation] = useState<string>("");
   const [showPunchEffect, setShowPunchEffect] = useState(false);
   const [showKickEffect, setShowKickEffect] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Redirect to home if there's no buddy image
+  // Redirect to home if there's no buddy image after a short delay
   useEffect(() => {
-    if (!buddyImage) {
-      toast.error("Please select a buddy first!");
-      navigate("/");
-    }
+    // Give context time to load buddy image if it exists
+    const timer = setTimeout(() => {
+      if (!buddyImage) {
+        toast.error("Please select a buddy first!");
+        navigate("/");
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [buddyImage, navigate]);
   
   useEffect(() => {
@@ -44,47 +48,34 @@ const GamePage = () => {
   const handleAttack = (attackId: string, damageAmount: number, soundUrl: string) => {
     if (isAnimating || isGameOver) return;
     
-    try {
-      setActiveAttack(attackId);
-      setIsAnimating(true);
-      
-      if (attackId === "punch") {
-        setAttackAnimation("animate-zoom");
-        setShowPunchEffect(true);
-      } else if (attackId === "kick") {
-        setAttackAnimation("animate-bounce-off");
-        setShowKickEffect(true);
-      } else {
-        // For hammer and other attacks
-        setAttackAnimation("animate-zoom");
-      }
-      
-      if (audioRef.current) {
-        audioRef.current.src = soundUrl;
-        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
-      }
-      
-      // Apply damage after a short delay
-      setTimeout(() => {
-        damage(damageAmount);
-        
-        // Reset animation states after delay
-        setTimeout(() => {
-          setIsAnimating(false);
-          setActiveAttack(null);
-          setAttackAnimation("");
-          setShowPunchEffect(false);
-          setShowKickEffect(false);
-        }, 500);
-      }, 200);
-    } catch (error) {
-      console.error("Error in handleAttack:", error);
-      setIsAnimating(false);
-      setActiveAttack(null);
-      setAttackAnimation("");
-      setShowPunchEffect(false);
-      setShowKickEffect(false);
+    setActiveAttack(attackId);
+    setIsAnimating(true);
+    
+    // Play sound first
+    if (audioRef.current) {
+      audioRef.current.src = soundUrl;
+      audioRef.current.play().catch(err => console.error("Error playing sound:", err));
     }
+    
+    // Show appropriate effect based on attack type
+    if (attackId === "punch") {
+      setShowPunchEffect(true);
+    } else if (attackId === "kick") {
+      setShowKickEffect(true);
+    }
+    
+    // Apply damage after a short delay
+    setTimeout(() => {
+      damage(damageAmount);
+      
+      // Reset animation states after a delay
+      setTimeout(() => {
+        setIsAnimating(false);
+        setActiveAttack(null);
+        setShowPunchEffect(false);
+        setShowKickEffect(false);
+      }, 500);
+    }, 300);
   };
   
   const getHealthColor = () => {
@@ -93,12 +84,6 @@ const GamePage = () => {
     if (percentage > 30) return "bg-yellow-500";
     return "bg-rage-danger";
   };
-  
-  // If buddyImage is not available, show loading state
-  // (the useEffect will handle navigation)
-  if (!buddyImage) {
-    return <Layout title="BEAT THE BUDDY"><div className="text-center p-6">Loading...</div></Layout>;
-  }
   
   return (
     <Layout title="BEAT THE BUDDY">
@@ -123,14 +108,12 @@ const GamePage = () => {
         </div>
         
         <div className="mb-8 relative">
-          <div 
-            className={`buddy-container w-3/4 mx-auto overflow-hidden ${isAnimating ? attackAnimation : ""} ${isGameOver ? "opacity-50" : ""}`}
-          >
+          <div className="buddy-container w-3/4 mx-auto overflow-hidden relative">
             {buddyImage && (
               <img 
                 src={buddyImage.src} 
-                alt={buddyImage.alt} 
-                className="object-cover w-full h-full"
+                alt={buddyImage.alt || "Buddy"} 
+                className={`object-cover w-full h-full ${isAnimating ? "animate-shake" : ""} ${isGameOver ? "opacity-50" : ""}`}
                 onError={(e) => {
                   console.error("Error loading buddy image");
                   e.currentTarget.src = "https://placehold.co/300x300/FF6B6B/ffffff?text=Buddy";
@@ -138,19 +121,21 @@ const GamePage = () => {
               />
             )}
             
+            {/* Punch effect overlay */}
             {showPunchEffect && (
               <img 
                 src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
                 alt="Punch Effect" 
-                className="attack-effect punch-effect"
+                className="punch-effect absolute"
               />
             )}
             
+            {/* Kick effect overlay */}
             {showKickEffect && (
               <img 
                 src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
                 alt="Kick Effect" 
-                className="attack-effect kick-effect"
+                className="kick-effect absolute"
               />
             )}
             
