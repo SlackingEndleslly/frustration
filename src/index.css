@@ -74,23 +74,25 @@
            transition-all duration-300;
   }
   
-  /* Attack effect styling */
+  /* Attack effect styling - improved positioning and z-index */
   .attack-effect {
-    @apply absolute pointer-events-none z-10;
+    @apply absolute pointer-events-none z-20;
     animation-duration: 0.5s;
     animation-fill-mode: forwards;
   }
   
   .punch-effect {
-    @apply absolute right-0 top-1/2 z-10 max-w-[50%] max-h-[50%] pointer-events-none;
+    @apply absolute right-0 top-1/2 z-30 max-w-[60%] max-h-[60%] pointer-events-none;
     animation: punchAnimation 0.5s forwards;
     transform: translateY(-50%);
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
   }
   
   .kick-effect {
-    @apply absolute left-0 top-1/2 z-10 max-w-[60%] max-h-[60%] pointer-events-none;
+    @apply absolute left-0 top-1/2 z-30 max-w-[70%] max-h-[70%] pointer-events-none;
     animation: kickAnimation 0.5s forwards;
     transform: translateY(-50%);
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
   }
   
   @keyframes zoom-attack {
@@ -114,15 +116,15 @@
   }
   
   @keyframes punchAnimation {
-    0% { opacity: 0; transform: translate(50px, -50%); }
-    50% { opacity: 1; transform: translate(20px, -50%); }
-    100% { opacity: 0; transform: translate(-10px, -50%); }
+    0% { opacity: 0; transform: translate(100px, -50%) scale(0.8); }
+    50% { opacity: 1; transform: translate(20px, -50%) scale(1.2); }
+    100% { opacity: 0; transform: translate(-10px, -50%) scale(0.9); }
   }
   
   @keyframes kickAnimation {
-    0% { opacity: 0; transform: translate(-50px, -50%); }
-    50% { opacity: 1; transform: translate(0, -50%); }
-    100% { opacity: 0; transform: translate(20px, -50%); }
+    0% { opacity: 0; transform: translate(-100px, -50%) scale(0.8); }
+    50% { opacity: 1; transform: translate(0, -50%) scale(1.2); }
+    100% { opacity: 0; transform: translate(20px, -50%) scale(0.9); }
   }
   
   .animate-zoom {

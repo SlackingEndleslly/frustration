@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
-import { Heart, Zap, Hammer, Flame, RotateCcw } from "lucide-react";
+import { Heart, Zap, Hammer, Flame, RotateCcw, Home } from "lucide-react";
 import { toast } from "sonner";
 
 const ATTACK_OPTIONS = [
@@ -15,6 +15,7 @@ const ATTACK_OPTIONS = [
 ];
 
 const DEFEAT_SOUND = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3";
+const VICTORY_MESSAGE = "Buddy defeated! Your rage has been vented!";
 
 const GamePage = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const GamePage = () => {
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
   const [showPunchEffect, setShowPunchEffect] = useState(false);
   const [showKickEffect, setShowKickEffect] = useState(false);
+  const [showVictoryMessage, setShowVictoryMessage] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Redirect to home if there's no buddy image after a short delay
@@ -38,10 +40,24 @@ const GamePage = () => {
     return () => clearTimeout(timer);
   }, [buddyImage, navigate]);
   
+  // Handle game over state
   useEffect(() => {
-    if (isGameOver && audioRef.current) {
-      audioRef.current.src = DEFEAT_SOUND;
-      audioRef.current.play().catch(err => console.error("Error playing defeat sound:", err));
+    if (isGameOver) {
+      try {
+        // Play defeat sound
+        if (audioRef.current) {
+          audioRef.current.src = DEFEAT_SOUND;
+          audioRef.current.play().catch(err => console.error("Error playing defeat sound:", err));
+        }
+        
+        // Show victory message with delay
+        setTimeout(() => {
+          setShowVictoryMessage(true);
+          toast.success(VICTORY_MESSAGE);
+        }, 500);
+      } catch (error) {
+        console.error("Error in game over effect:", error);
+      }
     }
   }, [isGameOver]);
   
@@ -51,31 +67,39 @@ const GamePage = () => {
     setActiveAttack(attackId);
     setIsAnimating(true);
     
-    // Play sound first
-    if (audioRef.current) {
-      audioRef.current.src = soundUrl;
-      audioRef.current.play().catch(err => console.error("Error playing sound:", err));
-    }
-    
-    // Show appropriate effect based on attack type
-    if (attackId === "punch") {
-      setShowPunchEffect(true);
-    } else if (attackId === "kick") {
-      setShowKickEffect(true);
-    }
-    
-    // Apply damage after a short delay
-    setTimeout(() => {
-      damage(damageAmount);
+    try {
+      // Play sound first
+      if (audioRef.current) {
+        audioRef.current.src = soundUrl;
+        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+      }
       
-      // Reset animation states after a delay
+      // Show appropriate effect based on attack type
+      if (attackId === "punch") {
+        setShowPunchEffect(true);
+      } else if (attackId === "kick") {
+        setShowKickEffect(true);
+      }
+      
+      // Apply damage after a short delay
       setTimeout(() => {
-        setIsAnimating(false);
-        setActiveAttack(null);
-        setShowPunchEffect(false);
-        setShowKickEffect(false);
-      }, 500);
-    }, 300);
+        damage(damageAmount);
+        
+        // Reset animation states after a delay
+        setTimeout(() => {
+          setIsAnimating(false);
+          setActiveAttack(null);
+          setShowPunchEffect(false);
+          setShowKickEffect(false);
+        }, 500);
+      }, 300);
+    } catch (error) {
+      console.error("Error during attack:", error);
+      setIsAnimating(false);
+      setActiveAttack(null);
+      setShowPunchEffect(false);
+      setShowKickEffect(false);
+    }
   };
   
   const getHealthColor = () => {
@@ -83,6 +107,16 @@ const GamePage = () => {
     if (percentage > 60) return "bg-green-500";
     if (percentage > 30) return "bg-yellow-500";
     return "bg-rage-danger";
+  };
+  
+  const handleGoHome = () => {
+    navigate("/");
+  };
+  
+  const handlePlayAgain = () => {
+    resetGame();
+    setShowVictoryMessage(false);
+    toast.info("Buddy reset! Keep venting your rage!");
   };
   
   return (
@@ -126,7 +160,7 @@ const GamePage = () => {
               <img 
                 src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
                 alt="Punch Effect" 
-                className="punch-effect absolute"
+                className="punch-effect"
               />
             )}
             
@@ -135,13 +169,15 @@ const GamePage = () => {
               <img 
                 src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
                 alt="Kick Effect" 
-                className="kick-effect absolute"
+                className="kick-effect"
               />
             )}
             
-            {isGameOver && (
+            {isGameOver && showVictoryMessage && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <span className="text-2xl font-bold text-rage-danger">DEFEATED!</span>
+                <div className="bg-card p-3 rounded-lg">
+                  <span className="text-2xl font-bold text-rage-danger">DEFEATED!</span>
+                </div>
               </div>
             )}
           </div>
@@ -168,32 +204,42 @@ const GamePage = () => {
           </div>
         </div>
         
-        {isGameOver && (
-          <Button 
-            onClick={resetGame}
-            className="w-full rage-button flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span>Reset Game</span>
-          </Button>
+        {isGameOver ? (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <Button 
+              onClick={handlePlayAgain}
+              className="rage-button flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>Play Again</span>
+            </Button>
+            
+            <Button 
+              onClick={handleGoHome}
+              className="rage-button flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Home className="h-4 w-4" />
+              <span>Home</span>
+            </Button>
+          </div>
+        ) : (
+          <div className="flex justify-between mt-6">
+            <Button 
+              onClick={() => navigate("/")}
+              variant="outline"
+              className="px-4"
+            >
+              Back to Home
+            </Button>
+            <Button 
+              onClick={() => navigate("/record-voice")}
+              variant="outline"
+              className="px-4"
+            >
+              Change Voice
+            </Button>
+          </div>
         )}
-        
-        <div className="flex justify-between mt-6">
-          <Button 
-            onClick={() => navigate("/")}
-            variant="outline"
-            className="px-4"
-          >
-            Back to Home
-          </Button>
-          <Button 
-            onClick={() => navigate("/record-voice")}
-            variant="outline"
-            className="px-4"
-          >
-            Change Voice
-          </Button>
-        </div>
       </div>
 
       <audio ref={audioRef} preload="auto" />
