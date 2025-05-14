@@ -34,40 +34,54 @@ const GamePage = () => {
   useEffect(() => {
     if (isGameOver && audioRef.current) {
       audioRef.current.src = DEFEAT_SOUND;
-      audioRef.current.play();
+      audioRef.current.play().catch(err => console.error("Error playing defeat sound:", err));
     }
   }, [isGameOver]);
   
   const handleAttack = (attackId: string, damageAmount: number, soundUrl: string) => {
     if (isAnimating || isGameOver) return;
     
-    setActiveAttack(attackId);
-    setIsAnimating(true);
-    
-    if (attackId === "punch") {
-      setAttackAnimation("animate-zoom");
-      setShowPunchEffect(true);
-    } else if (attackId === "kick") {
-      setAttackAnimation("animate-bounce-off");
-      setShowKickEffect(true);
-    }
-    
-    if (audioRef.current) {
-      audioRef.current.src = soundUrl;
-      audioRef.current.play();
-    }
-    
-    setTimeout(() => {
-      damage(damageAmount);
+    try {
+      setActiveAttack(attackId);
+      setIsAnimating(true);
       
+      if (attackId === "punch") {
+        setAttackAnimation("animate-zoom");
+        setShowPunchEffect(true);
+      } else if (attackId === "kick") {
+        setAttackAnimation("animate-bounce-off");
+        setShowKickEffect(true);
+      } else {
+        // For hammer and other attacks
+        setAttackAnimation("animate-zoom");
+      }
+      
+      if (audioRef.current) {
+        audioRef.current.src = soundUrl;
+        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+      }
+      
+      // Apply damage after a short delay
       setTimeout(() => {
-        setIsAnimating(false);
-        setActiveAttack(null);
-        setAttackAnimation("");
-        setShowPunchEffect(false);
-        setShowKickEffect(false);
-      }, 500);
-    }, 200);
+        damage(damageAmount);
+        
+        // Reset animation states after delay
+        setTimeout(() => {
+          setIsAnimating(false);
+          setActiveAttack(null);
+          setAttackAnimation("");
+          setShowPunchEffect(false);
+          setShowKickEffect(false);
+        }, 500);
+      }, 200);
+    } catch (error) {
+      console.error("Error in handleAttack:", error);
+      setIsAnimating(false);
+      setActiveAttack(null);
+      setAttackAnimation("");
+      setShowPunchEffect(false);
+      setShowKickEffect(false);
+    }
   };
   
   const getHealthColor = () => {
@@ -77,8 +91,10 @@ const GamePage = () => {
     return "bg-rage-danger";
   };
   
+  // If buddyImage is not available, return early but don't navigate
+  // (the useEffect will handle navigation)
   if (!buddyImage) {
-    return null;
+    return <Layout title="BEAT THE BUDDY"><div>Loading...</div></Layout>;
   }
   
   return (
@@ -107,11 +123,13 @@ const GamePage = () => {
           <div 
             className={`buddy-container w-3/4 mx-auto overflow-hidden ${isAnimating ? attackAnimation : ""} ${isGameOver ? "opacity-50" : ""}`}
           >
-            <img 
-              src={buddyImage.src} 
-              alt={buddyImage.alt} 
-              className="object-cover w-full h-full"
-            />
+            {buddyImage && (
+              <img 
+                src={buddyImage.src} 
+                alt={buddyImage.alt} 
+                className="object-cover w-full h-full"
+              />
+            )}
             
             {showPunchEffect && (
               <img 
@@ -186,10 +204,9 @@ const GamePage = () => {
         </div>
       </div>
 
-      <audio ref={audioRef} />
+      <audio ref={audioRef} preload="auto" />
     </Layout>
   );
 };
 
 export default GamePage;
-
