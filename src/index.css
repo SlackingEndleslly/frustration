@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,14 +74,50 @@
            transition-all duration-300;
   }
   
+  /* Attack effect styling */
+  .attack-effect {
+    @apply absolute pointer-events-none z-10;
+    animation-duration: 0.5s;
+    animation-fill-mode: forwards;
+  }
+  
+  .punch-effect {
+    @apply right-0 top-1/2 transform -translate-y-1/2;
+    animation-name: punchAnimation;
+    max-width: 50%;
+    max-height: 50%;
+  }
+  
+  .kick-effect {
+    @apply left-0 top-1/2 transform -translate-y-1/2;
+    animation-name: kickAnimation;
+    max-width: 60%;
+    max-height: 60%;
+  }
+  
   @keyframes zoom-attack {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
   }
   
   @keyframes bounce-off {
-    0%, 100% { transform: translateX(0); }
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-30%); }
     50% { transform: translateX(100%); }
+    75% { transform: translateX(-10%); }
+    100% { transform: translateX(0); }
+  }
+  
+  @keyframes punchAnimation {
+    0% { opacity: 0; transform: translate(50px, -50%); }
+    50% { opacity: 1; transform: translate(20px, -50%); }
+    100% { opacity: 0; transform: translate(-10px, -50%); }
+  }
+  
+  @keyframes kickAnimation {
+    0% { opacity: 0; transform: translate(-50px, -50%); }
+    50% { opacity: 1; transform: translate(0, -50%); }
+    100% { opacity: 0; transform: translate(20px, -50%); }
   }
   
   .animate-zoom {

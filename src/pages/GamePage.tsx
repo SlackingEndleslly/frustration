@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ const GamePage = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
   const [attackAnimation, setAttackAnimation] = useState<string>("");
+  const [showPunchEffect, setShowPunchEffect] = useState(false);
+  const [showKickEffect, setShowKickEffect] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   useEffect(() => {
@@ -43,8 +46,10 @@ const GamePage = () => {
     
     if (attackId === "punch") {
       setAttackAnimation("animate-zoom");
+      setShowPunchEffect(true);
     } else if (attackId === "kick") {
       setAttackAnimation("animate-bounce-off");
+      setShowKickEffect(true);
     }
     
     if (audioRef.current) {
@@ -59,7 +64,9 @@ const GamePage = () => {
         setIsAnimating(false);
         setActiveAttack(null);
         setAttackAnimation("");
-      }, 300);
+        setShowPunchEffect(false);
+        setShowKickEffect(false);
+      }, 500);
     }, 200);
   };
   
@@ -96,7 +103,7 @@ const GamePage = () => {
           />
         </div>
         
-        <div className="mb-8">
+        <div className="mb-8 relative">
           <div 
             className={`buddy-container w-3/4 mx-auto overflow-hidden ${isAnimating ? attackAnimation : ""} ${isGameOver ? "opacity-50" : ""}`}
           >
@@ -105,6 +112,22 @@ const GamePage = () => {
               alt={buddyImage.alt} 
               className="object-cover w-full h-full"
             />
+            
+            {showPunchEffect && (
+              <img 
+                src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
+                alt="Punch Effect" 
+                className="attack-effect punch-effect"
+              />
+            )}
+            
+            {showKickEffect && (
+              <img 
+                src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
+                alt="Kick Effect" 
+                className="attack-effect kick-effect"
+              />
+            )}
             
             {isGameOver && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -169,3 +192,4 @@ const GamePage = () => {
 };
 
 export default GamePage;
+
