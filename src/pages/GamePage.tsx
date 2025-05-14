@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { Heart, Zap, Hammer, Flame, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 const ATTACK_OPTIONS = [
   { id: "punch", label: "Punch", icon: <Zap className="h-5 w-5" />, damage: 10, sound: "https://assets.mixkit.co/active_storage/sfx/214/214-preview.mp3" },
@@ -25,8 +26,10 @@ const GamePage = () => {
   const [showKickEffect, setShowKickEffect] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
+  // Redirect to home if there's no buddy image
   useEffect(() => {
     if (!buddyImage) {
+      toast.error("Please select a buddy first!");
       navigate("/");
     }
   }, [buddyImage, navigate]);
@@ -91,10 +94,10 @@ const GamePage = () => {
     return "bg-rage-danger";
   };
   
-  // If buddyImage is not available, return early but don't navigate
+  // If buddyImage is not available, show loading state
   // (the useEffect will handle navigation)
   if (!buddyImage) {
-    return <Layout title="BEAT THE BUDDY"><div>Loading...</div></Layout>;
+    return <Layout title="BEAT THE BUDDY"><div className="text-center p-6">Loading...</div></Layout>;
   }
   
   return (
@@ -128,6 +131,10 @@ const GamePage = () => {
                 src={buddyImage.src} 
                 alt={buddyImage.alt} 
                 className="object-cover w-full h-full"
+                onError={(e) => {
+                  console.error("Error loading buddy image");
+                  e.currentTarget.src = "https://placehold.co/300x300/FF6B6B/ffffff?text=Buddy";
+                }}
               />
             )}
             

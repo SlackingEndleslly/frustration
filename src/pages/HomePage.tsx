@@ -7,6 +7,11 @@ import { Heart, Zap } from "lucide-react";
 const HomePage = () => {
   const navigate = useNavigate();
 
+  const handleBeginRage = () => {
+    // Start by selecting a buddy
+    navigate("/select-buddy");
+  };
+
   return (
     <Layout>
       <div className="flex flex-col items-center justify-center max-w-md mx-auto text-center">
@@ -29,7 +34,7 @@ const HomePage = () => {
           </div>
           
           <Button 
-            onClick={() => navigate("/select-buddy")}
+            onClick={handleBeginRage}
             className="rage-button w-full text-xl animate-pulse-rage"
           >
             BEGIN RAGE
