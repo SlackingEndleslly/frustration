@@ -49,7 +49,12 @@ const RecordVoicePage = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (error) {
+          console.error("Error stopping media recorder:", error);
+        }
         mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       }
       if (audioRef.current) {
@@ -97,10 +102,18 @@ const RecordVoicePage = () => {
           const newTime = prev + 1;
           if (newTime >= maxRecordingTime) {
             // Stop only here!
-            mediaRecorderRef.current?.stop();
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+              try {
+                mediaRecorderRef.current.stop();
+              } catch (error) {
+                console.error("Error stopping media recorder:", error);
+              }
+            }
             setIsRecording(false);
-            clearInterval(timerRef.current as NodeJS.Timeout);
-            timerRef.current = null;
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
             toast.success("Recording stopped after 30s!");
             return maxRecordingTime;
           }
@@ -115,8 +128,6 @@ const RecordVoicePage = () => {
     }
   };
 
-  // remove stopRecording function since stopping manually is not allowed anymore
-
   const handlePlayPause = () => {
     if (audioUrl && audioRef.current) {
       if (isPlaying && !isPaused) {
@@ -125,12 +136,18 @@ const RecordVoicePage = () => {
         setIsPaused(true);
       } else if (isPaused) {
         // RESUME
-        audioRef.current.play();
+        audioRef.current.play().catch(err => {
+          console.error("Error playing audio:", err);
+          toast.error("Could not play audio. Please try again.");
+        });
         setIsPaused(false);
       } else {
         // PLAY
         audioRef.current.currentTime = 0;
-        audioRef.current.play();
+        audioRef.current.play().catch(err => {
+          console.error("Error playing audio:", err);
+          toast.error("Could not play audio. Please try again.");
+        });
         setIsPlaying(true);
         setIsPaused(false);
       }
@@ -166,10 +183,17 @@ const RecordVoicePage = () => {
     }
   }, [audioUrl]);
 
-  const handleContinue = () => {
+  const handleContinue = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent form submission
+    
     if (audioUrl) {
       setVoiceRecording(audioUrl);
-      navigate("/play-game");
+      toast.success("Voice recorded successfully! Taking you to the game...");
+      
+      // Give the toast time to show before navigating
+      setTimeout(() => {
+        navigate("/play-game");
+      }, 800);
     } else {
       toast.error("Please record your rage sound first!");
     }
@@ -274,7 +298,10 @@ const RecordVoicePage = () => {
 
         <div className="flex justify-between">
           <Button 
-            onClick={() => navigate("/select-buddy")}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/select-buddy");
+            }}
             variant="outline"
             className="px-4"
           >

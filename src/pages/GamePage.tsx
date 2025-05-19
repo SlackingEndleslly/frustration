@@ -18,7 +18,7 @@ const VICTORY_MESSAGE = "Buddy defeated! Your rage has been vented!";
 
 const GamePage = () => {
   const navigate = useNavigate();
-  const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
+  const { buddyImage, health, maxHealth, damage, resetGame, isGameOver, voiceRecording } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
   const [showPunchEffect, setShowPunchEffect] = useState(false);
@@ -60,16 +60,21 @@ const GamePage = () => {
     }
   }, [isGameOver]);
   
-  const handleAttack = (attackId: string, damageAmount: number, soundUrl: string) => {
+  const handleAttack = (e: React.MouseEvent, attackId: string, damageAmount: number, soundUrl: string) => {
+    e.preventDefault(); // Prevent default form submission
+    
     if (isAnimating || isGameOver) return;
     
     setActiveAttack(attackId);
     setIsAnimating(true);
     
     try {
+      // Use voice recording if available, otherwise use default sound
+      const audioSource = voiceRecording || soundUrl;
+      
       // Play sound first
       if (audioRef.current) {
-        audioRef.current.src = soundUrl;
+        audioRef.current.src = audioSource;
         audioRef.current.play().catch(err => console.error("Error playing sound:", err));
       }
       
@@ -196,10 +201,7 @@ const GamePage = () => {
             {ATTACK_OPTIONS.map((attack) => (
               <Button
                 key={attack.id}
-                onClick={(e) => {
-                  e.preventDefault(); // Prevent default form submission
-                  handleAttack(attack.id, attack.damage, attack.sound);
-                }}
+                onClick={(e) => handleAttack(e, attack.id, attack.damage, attack.sound)}
                 className={`
                   p-3 h-auto flex flex-col items-center gap-1 transition-all duration-300
                   ${activeAttack === attack.id ? "bg-rage-accent scale-95" : "bg-rage hover:bg-rage-accent"}

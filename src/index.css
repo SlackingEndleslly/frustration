@@ -84,6 +84,7 @@
   /* Container for punch effect to ensure proper positioning */
   .punch-effect-container {
     @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-end;
+    animation: container-flash 0.5s ease-out;
   }
   
   .punch-effect {
@@ -95,12 +96,19 @@
   /* Container for kick effect to ensure proper positioning */
   .kick-effect-container {
     @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-start;
+    animation: container-flash 0.5s ease-out;
   }
   
   .kick-effect {
     @apply max-w-[70%] max-h-[70%] pointer-events-none;
     animation: kickAnimation 0.5s forwards;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+  }
+  
+  @keyframes container-flash {
+    0% { background-color: rgba(255, 255, 255, 0); }
+    30% { background-color: rgba(255, 255, 255, 0.1); }
+    100% { background-color: rgba(255, 255, 255, 0); }
   }
   
   @keyframes zoom-attack {
