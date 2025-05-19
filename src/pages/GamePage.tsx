@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
-import { Heart, Zap, Hammer, Flame, RotateCcw, Home } from "lucide-react";
+import { Heart, Zap, Flame, RotateCcw, Home } from "lucide-react";
 import { toast } from "sonner";
 
 const ATTACK_OPTIONS = [
   { id: "punch", label: "Punch", icon: <Zap className="h-5 w-5" />, damage: 10, sound: "https://assets.mixkit.co/active_storage/sfx/214/214-preview.mp3" },
   { id: "kick", label: "Kick", icon: <Flame className="h-5 w-5" />, damage: 15, sound: "https://assets.mixkit.co/active_storage/sfx/2027/2027-preview.mp3" },
-  { id: "hammer", label: "Hammer", icon: <Hammer className="h-5 w-5" />, damage: 20, sound: "https://assets.mixkit.co/active_storage/sfx/1647/1647-preview.mp3" },
 ];
 
 const DEFEAT_SOUND = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3";
@@ -185,7 +184,7 @@ const GamePage = () => {
         
         <div className="mb-6">
           <h3 className="text-lg font-medium mb-4">Attack Options</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {ATTACK_OPTIONS.map((attack) => (
               <Button
                 key={attack.id}
