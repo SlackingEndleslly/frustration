@@ -76,8 +76,10 @@ const GamePage = () => {
       // Show appropriate effect based on attack type
       if (attackId === "punch") {
         setShowPunchEffect(true);
+        setShowKickEffect(false);
       } else if (attackId === "kick") {
         setShowKickEffect(true);
+        setShowPunchEffect(false);
       }
       
       // Apply damage after a short delay
@@ -108,11 +110,13 @@ const GamePage = () => {
     return "bg-rage-danger";
   };
   
-  const handleGoHome = () => {
+  const handleGoHome = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default form submission behavior
     navigate("/");
   };
   
-  const handlePlayAgain = () => {
+  const handlePlayAgain = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default form submission behavior
     resetGame();
     setShowVictoryMessage(false);
     toast.info("Buddy reset! Keep venting your rage!");
@@ -156,20 +160,24 @@ const GamePage = () => {
             
             {/* Punch effect overlay */}
             {showPunchEffect && (
-              <img 
-                src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
-                alt="Punch Effect" 
-                className="punch-effect"
-              />
+              <div className="punch-effect-container">
+                <img 
+                  src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
+                  alt="Punch Effect" 
+                  className="punch-effect"
+                />
+              </div>
             )}
             
             {/* Kick effect overlay */}
             {showKickEffect && (
-              <img 
-                src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
-                alt="Kick Effect" 
-                className="kick-effect"
-              />
+              <div className="kick-effect-container">
+                <img 
+                  src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
+                  alt="Kick Effect" 
+                  className="kick-effect"
+                />
+              </div>
             )}
             
             {isGameOver && showVictoryMessage && (
@@ -188,7 +196,10 @@ const GamePage = () => {
             {ATTACK_OPTIONS.map((attack) => (
               <Button
                 key={attack.id}
-                onClick={() => handleAttack(attack.id, attack.damage, attack.sound)}
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent default form submission
+                  handleAttack(attack.id, attack.damage, attack.sound);
+                }}
                 className={`
                   p-3 h-auto flex flex-col items-center gap-1 transition-all duration-300
                   ${activeAttack === attack.id ? "bg-rage-accent scale-95" : "bg-rage hover:bg-rage-accent"}
@@ -224,14 +235,20 @@ const GamePage = () => {
         ) : (
           <div className="flex justify-between mt-6">
             <Button 
-              onClick={() => navigate("/")}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/");
+              }}
               variant="outline"
               className="px-4"
             >
               Back to Home
             </Button>
             <Button 
-              onClick={() => navigate("/record-voice")}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/record-voice");
+              }}
               variant="outline"
               className="px-4"
             >
