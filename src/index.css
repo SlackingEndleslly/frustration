@@ -85,24 +85,28 @@
   .punch-effect-container {
     @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-end;
     animation: container-flash 0.5s ease-out;
+    opacity: 1 !important;
   }
   
   .punch-effect {
     @apply max-w-[60%] max-h-[60%] pointer-events-none;
     animation: punchAnimation 0.5s forwards;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+    opacity: 1 !important;
   }
   
   /* Container for kick effect to ensure proper positioning */
   .kick-effect-container {
     @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-start;
     animation: container-flash 0.5s ease-out;
+    opacity: 1 !important;
   }
   
   .kick-effect {
     @apply max-w-[70%] max-h-[70%] pointer-events-none;
     animation: kickAnimation 0.5s forwards;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+    opacity: 1 !important;
   }
   
   @keyframes container-flash {

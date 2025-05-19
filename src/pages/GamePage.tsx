@@ -62,6 +62,7 @@ const GamePage = () => {
   
   const handleAttack = (e: React.MouseEvent, attackId: string, damageAmount: number, soundUrl: string) => {
     e.preventDefault(); // Prevent default form submission
+    e.stopPropagation(); // Stop event propagation to prevent navigation
     
     if (isAnimating || isGameOver) return;
     
@@ -117,11 +118,13 @@ const GamePage = () => {
   
   const handleGoHome = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent default form submission behavior
+    e.stopPropagation(); // Stop event propagation to prevent navigation issues
     navigate("/");
   };
   
   const handlePlayAgain = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent default form submission behavior
+    e.stopPropagation(); // Stop event propagation to prevent navigation issues
     resetGame();
     setShowVictoryMessage(false);
     toast.info("Buddy reset! Keep venting your rage!");
@@ -186,7 +189,7 @@ const GamePage = () => {
             )}
             
             {isGameOver && showVictoryMessage && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
                 <div className="bg-card p-3 rounded-lg">
                   <span className="text-2xl font-bold text-rage-danger">DEFEATED!</span>
                 </div>
@@ -223,7 +226,7 @@ const GamePage = () => {
               className="rage-button flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
             >
               <RotateCcw className="h-4 w-4" />
-              <span>Play Again</span>
+              <span>Rehit Buddy</span>
             </Button>
             
             <Button 
@@ -239,6 +242,7 @@ const GamePage = () => {
             <Button 
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 navigate("/");
               }}
               variant="outline"
@@ -249,6 +253,7 @@ const GamePage = () => {
             <Button 
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 navigate("/record-voice");
               }}
               variant="outline"
