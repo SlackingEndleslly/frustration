@@ -9,8 +9,20 @@ import { Heart, Zap, Flame, RotateCcw, Home } from "lucide-react";
 import { toast } from "sonner";
 
 const ATTACK_OPTIONS = [
-  { id: "punch", label: "Punch", icon: <Zap className="h-5 w-5" />, damage: 10, sound: "https://assets.mixkit.co/active_storage/sfx/214/214-preview.mp3" },
-  { id: "kick", label: "Kick", icon: <Flame className="h-5 w-5" />, damage: 15, sound: "https://assets.mixkit.co/active_storage/sfx/2027/2027-preview.mp3" },
+  { 
+    id: "punch", 
+    label: "Punch", 
+    icon: <Zap className="h-5 w-5" />, 
+    damage: 10, 
+    sound: "/punch2.wav" 
+  },
+  { 
+    id: "kick", 
+    label: "Kick", 
+    icon: <Flame className="h-5 w-5" />, 
+    damage: 15, 
+    sound: "/slap.wav" 
+  },
 ];
 
 const DEFEAT_SOUND = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3";
@@ -61,8 +73,8 @@ const GamePage = () => {
   }, [isGameOver]);
   
   const handleAttack = (e: React.MouseEvent, attackId: string, damageAmount: number, soundUrl: string) => {
-    e.preventDefault(); // Prevent default form submission
-    e.stopPropagation(); // Stop event propagation to prevent navigation
+    e.preventDefault();
+    e.stopPropagation();
     
     if (isAnimating || isGameOver) return;
     
@@ -70,7 +82,7 @@ const GamePage = () => {
     setIsAnimating(true);
     
     try {
-      // Use voice recording if available, otherwise use default sound
+      // Use voice recording if available, otherwise use the attack-specific sound
       const audioSource = voiceRecording || soundUrl;
       
       // Play sound first
