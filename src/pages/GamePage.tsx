@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,14 +13,14 @@ const ATTACK_OPTIONS = [
     label: "Punch", 
     icon: <Zap className="h-5 w-5" />, 
     damage: 10, 
-    sound: "/punch2.wav" 
+    sound: "https://www.soundjay.com/misc/sounds/punch-02.wav" 
   },
   { 
     id: "kick", 
     label: "Kick", 
     icon: <Flame className="h-5 w-5" />, 
     damage: 15, 
-    sound: "/slap.wav" 
+    sound: "https://www.soundjay.com/misc/sounds/whip-crack-01.wav" 
   },
 ];
 
@@ -82,12 +81,9 @@ const GamePage = () => {
     setIsAnimating(true);
     
     try {
-      // Use voice recording if available, otherwise use the attack-specific sound
-      const audioSource = voiceRecording || soundUrl;
-      
-      // Play sound first
+      // Play the attack-specific sound (punch or kick), not the voice recording
       if (audioRef.current) {
-        audioRef.current.src = audioSource;
+        audioRef.current.src = soundUrl;
         audioRef.current.play().catch(err => console.error("Error playing sound:", err));
       }
       
