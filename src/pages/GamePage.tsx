@@ -21,7 +21,7 @@ const ATTACK_OPTIONS = [
     label: "Kick", 
     icon: <Flame className="h-5 w-5" />, 
     damage: 15, 
-    sound: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" 
+    sound: "https://www.myinstants.com/media/sounds/thud-sound-effect_1.mp3" 
   },
 ];
 
@@ -82,18 +82,16 @@ const GamePage = () => {
     setIsAnimating(true);
     
     try {
-      // Create a new audio instance for each attack to avoid loading issues
+      // Play sound immediately - create new audio instance for instant playback
       const audio = new Audio();
+      audio.preload = 'auto';
+      audio.volume = 0.7;
       
-      // Use a fallback approach with multiple sound sources
-      const playSound = async () => {
+      // Set source and play immediately
+      audio.src = soundUrl;
+      audio.play().catch(() => {
+        // Fallback to Web Audio API for instant response
         try {
-          // Try the primary sound URL
-          audio.src = soundUrl;
-          await audio.play();
-        } catch (error) {
-          console.log("Primary sound failed, trying fallback");
-          // Fallback to a simple beep sound using Web Audio API
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
@@ -102,18 +100,27 @@ const GamePage = () => {
           gainNode.connect(audioContext.destination);
           
           // Different frequencies for punch vs kick
-          oscillator.frequency.setValueAtTime(attackId === "punch" ? 200 : 150, audioContext.currentTime);
-          oscillator.type = 'square';
-          
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-          
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.3);
+          if (attackId === "kick") {
+            // Lower, thumpier sound for kick
+            oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+          } else {
+            // Higher, snappier sound for punch
+            oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+          }
+        } catch (fallbackError) {
+          console.log("Audio fallback also failed:", fallbackError);
         }
-      };
-      
-      playSound();
+      });
       
       // Show appropriate effect based on attack type
       if (attackId === "punch") {
