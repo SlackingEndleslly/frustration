@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,14 +14,14 @@ const ATTACK_OPTIONS = [
     label: "Punch", 
     icon: <Zap className="h-5 w-5" />, 
     damage: 10, 
-    sound: "https://www.soundjay.com/misc/sounds/punch-02.wav" 
+    sound: "https://www.myinstants.com/media/sounds/punch-sound-effect.mp3" 
   },
   { 
     id: "kick", 
     label: "Kick", 
     icon: <Flame className="h-5 w-5" />, 
     damage: 15, 
-    sound: "https://www.soundjay.com/misc/sounds/whip-crack-01.wav" 
+    sound: "https://www.myinstants.com/media/sounds/kick-sound-effect.mp3" 
   },
 ];
 
@@ -81,11 +82,38 @@ const GamePage = () => {
     setIsAnimating(true);
     
     try {
-      // Play the attack-specific sound (punch or kick), not the voice recording
-      if (audioRef.current) {
-        audioRef.current.src = soundUrl;
-        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
-      }
+      // Create a new audio instance for each attack to avoid loading issues
+      const audio = new Audio();
+      
+      // Use a fallback approach with multiple sound sources
+      const playSound = async () => {
+        try {
+          // Try the primary sound URL
+          audio.src = soundUrl;
+          await audio.play();
+        } catch (error) {
+          console.log("Primary sound failed, trying fallback");
+          // Fallback to a simple beep sound using Web Audio API
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Different frequencies for punch vs kick
+          oscillator.frequency.setValueAtTime(attackId === "punch" ? 200 : 150, audioContext.currentTime);
+          oscillator.type = 'square';
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+        }
+      };
+      
+      playSound();
       
       // Show appropriate effect based on attack type
       if (attackId === "punch") {
@@ -131,10 +159,17 @@ const GamePage = () => {
   };
   
   const handlePlayAgain = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default form submission behavior
-    e.stopPropagation(); // Stop event propagation to prevent navigation issues
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Reset the game state completely
     resetGame();
     setShowVictoryMessage(false);
+    setIsAnimating(false);
+    setActiveAttack(null);
+    setShowPunchEffect(false);
+    setShowKickEffect(false);
+    
     toast.info("Buddy reset! Keep venting your rage!");
   };
   
