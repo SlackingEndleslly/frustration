@@ -21,7 +21,7 @@ const ATTACK_OPTIONS = [
     label: "Kick", 
     icon: <Flame className="h-5 w-5" />, 
     damage: 15, 
-    sound: "https://www.myinstants.com/media/sounds/kick-sound-effect.mp3" 
+    sound: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" 
   },
 ];
 
