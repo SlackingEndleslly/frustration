@@ -1,6 +1,5 @@
 
 import { ReactNode, createContext, useContext, useState } from "react";
-import { toast } from "sonner";
 
 export type BuddyImage = {
   id: string;
@@ -31,16 +30,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   const damage = (amount: number) => {
     setHealth((prevHealth) => {
       const newHealth = Math.max(0, prevHealth - amount);
-      if (newHealth === 0) {
-        toast.error("Buddy was defeated! Game Over!");
-      }
       return newHealth;
     });
   };
 
   const resetGame = () => {
     setHealth(maxHealth);
-    toast.success("Game reset! Buddy is back to full health!");
+    // Silently reset without notifications
   };
 
   return (

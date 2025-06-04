@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const RecordVoicePage = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [micPermissionStatus, setMicPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
   const [isCheckingPermission, setIsCheckingPermission] = useState(false);
+  const [hasTestedMicrophone, setHasTestedMicrophone] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -36,6 +38,9 @@ const RecordVoicePage = () => {
           permission.onchange = () => {
             setMicPermissionStatus(permission.state);
           };
+        } else {
+          // If permissions API is not available, assume we need to test
+          setMicPermissionStatus('unknown');
         }
       } catch (error) {
         console.log("Permission API not supported, will check on recording attempt");
@@ -92,12 +97,19 @@ const RecordVoicePage = () => {
     
     try {
       // First, try to get user media to trigger permission prompt
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       
       // If successful, stop the stream immediately (we just wanted to check permission)
       stream.getTracks().forEach(track => track.stop());
       
       setMicPermissionStatus('granted');
+      setHasTestedMicrophone(true);
       toast.success("Microphone access granted! You can now start recording.");
       return true;
     } catch (error: any) {
@@ -121,7 +133,13 @@ const RecordVoicePage = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -262,8 +280,19 @@ const RecordVoicePage = () => {
     }
   };
 
-  const canStartRecording = micPermissionStatus === 'granted' && !isRecording && !audioUrl;
-  const needsPermission = micPermissionStatus === 'denied' || micPermissionStatus === 'unknown';
+  // More explicit logic for when to show recording button
+  const canStartRecording = () => {
+    // In APK/mobile environments, sometimes permission status is unknown but microphone works
+    if (micPermissionStatus === 'granted') return !isRecording && !audioUrl;
+    if (micPermissionStatus === 'unknown' && hasTestedMicrophone) return !isRecording && !audioUrl;
+    return false;
+  };
+
+  const needsPermission = () => {
+    if (micPermissionStatus === 'denied') return true;
+    if (micPermissionStatus === 'unknown' && !hasTestedMicrophone) return true;
+    return false;
+  };
 
   return (
     <Layout title="RECORD YOUR RAGE">
@@ -295,7 +324,7 @@ const RecordVoicePage = () => {
           )}
 
           <div className="flex flex-col items-center gap-4">
-            {needsPermission && !isCheckingPermission && (
+            {needsPermission() && !isCheckingPermission && (
               <Button 
                 onClick={requestMicrophoneAccess}
                 className="rage-button w-full flex items-center justify-center gap-2"
@@ -337,7 +366,7 @@ const RecordVoicePage = () => {
                   <span>Recording... (Wait 30s)</span>
                 </Button>
               </div>
-            ) : canStartRecording ? (
+            ) : canStartRecording() ? (
               <Button 
                 onClick={startRecording}
                 className="rage-button w-full flex items-center justify-center gap-2"
