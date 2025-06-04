@@ -3,9 +3,17 @@ import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { Heart, Zap } from "lucide-react";
+import { useGame } from "@/contexts/GameContext";
+import { useEffect } from "react";
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { resetGame } = useGame();
+
+  // Reset game state when returning to home page
+  useEffect(() => {
+    resetGame();
+  }, [resetGame]);
 
   const handleBeginRage = () => {
     // Start by selecting a buddy
