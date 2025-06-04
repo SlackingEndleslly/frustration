@@ -16,7 +16,7 @@ const HomePage = () => {
     <Layout>
       <div className="flex flex-col items-center justify-center max-w-md mx-auto text-center">
         {/* Company Logo */}
-        <div className="mb-6">
+        <div className="mb-6 animate-float">
           <img 
             src="/lovable-uploads/10cb857d-3fd1-4d83-9395-82bb0dc17957.png" 
             alt="Abaci Software Logo" 
