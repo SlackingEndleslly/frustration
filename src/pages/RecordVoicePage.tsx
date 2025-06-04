@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
-import { Mic, Play, Pause, Volume2 } from "lucide-react";
+import { Mic, Play, Pause, Volume2, AlertCircle } from "lucide-react";
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -16,12 +15,36 @@ const RecordVoicePage = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [micPermissionStatus, setMicPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
+  const [isCheckingPermission, setIsCheckingPermission] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const maxRecordingTime = 30; // 30 seconds only
+
+  // Check microphone permission status on component mount
+  useEffect(() => {
+    const checkMicPermission = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicPermissionStatus(permission.state);
+          
+          // Listen for permission changes
+          permission.onchange = () => {
+            setMicPermissionStatus(permission.state);
+          };
+        }
+      } catch (error) {
+        console.log("Permission API not supported, will check on recording attempt");
+        setMicPermissionStatus('unknown');
+      }
+    };
+    
+    checkMicPermission();
+  }, []);
 
   useEffect(() => {
     // Create new Audio for playback
@@ -63,6 +86,38 @@ const RecordVoicePage = () => {
       }
     };
   }, []);
+
+  const requestMicrophoneAccess = async () => {
+    setIsCheckingPermission(true);
+    
+    try {
+      // First, try to get user media to trigger permission prompt
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // If successful, stop the stream immediately (we just wanted to check permission)
+      stream.getTracks().forEach(track => track.stop());
+      
+      setMicPermissionStatus('granted');
+      toast.success("Microphone access granted! You can now start recording.");
+      return true;
+    } catch (error: any) {
+      console.error("Error requesting microphone access:", error);
+      
+      if (error.name === 'NotAllowedError') {
+        setMicPermissionStatus('denied');
+        toast.error("Microphone access denied. Please allow microphone access in your browser settings and refresh the page.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found. Please connect a microphone and try again.");
+      } else if (error.name === 'NotSupportedError') {
+        toast.error("Microphone recording is not supported in this browser.");
+      } else {
+        toast.error("Could not access microphone. Please check your browser settings.");
+      }
+      return false;
+    } finally {
+      setIsCheckingPermission(false);
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -122,9 +177,17 @@ const RecordVoicePage = () => {
       }, 1000);
 
       toast.success("Recording started!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please check permissions.");
+      
+      if (error.name === 'NotAllowedError') {
+        setMicPermissionStatus('denied');
+        toast.error("Microphone access denied. Please click 'Allow Microphone' and grant permission.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found. Please connect a microphone and try again.");
+      } else {
+        toast.error("Could not access microphone. Please check permissions and try again.");
+      }
     }
   };
 
@@ -199,6 +262,9 @@ const RecordVoicePage = () => {
     }
   };
 
+  const canStartRecording = micPermissionStatus === 'granted' && !isRecording && !audioUrl;
+  const needsPermission = micPermissionStatus === 'denied' || micPermissionStatus === 'unknown';
+
   return (
     <Layout title="RECORD YOUR RAGE">
       <div className="rage-card max-w-md w-full mx-auto">
@@ -218,7 +284,37 @@ const RecordVoicePage = () => {
             Let your buddy know how you feel! Record a rage sound that will play when you attack.
           </p>
 
+          {/* Microphone Permission Status */}
+          {micPermissionStatus === 'denied' && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg flex items-center gap-2 text-red-800">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">
+                Microphone access denied. Please allow microphone access in your browser and refresh the page.
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-col items-center gap-4">
+            {needsPermission && !isCheckingPermission && (
+              <Button 
+                onClick={requestMicrophoneAccess}
+                className="rage-button w-full flex items-center justify-center gap-2"
+              >
+                <Mic className="h-5 w-5" />
+                <span>Allow Microphone</span>
+              </Button>
+            )}
+
+            {isCheckingPermission && (
+              <Button 
+                disabled={true}
+                className="w-full flex items-center justify-center gap-2 opacity-50"
+              >
+                <Mic className="h-5 w-5" />
+                <span>Checking permissions...</span>
+              </Button>
+            )}
+
             {isRecording ? (
               <div className="w-full space-y-4">
                 <div className="flex items-center justify-between mb-2">
@@ -241,16 +337,15 @@ const RecordVoicePage = () => {
                   <span>Recording... (Wait 30s)</span>
                 </Button>
               </div>
-            ) : (
+            ) : canStartRecording ? (
               <Button 
                 onClick={startRecording}
                 className="rage-button w-full flex items-center justify-center gap-2"
-                disabled={!!audioUrl}
               >
                 <Mic className="h-5 w-5" />
                 <span>Start Recording</span>
               </Button>
-            )}
+            ) : null}
 
             {audioUrl && (
               <div className="w-full flex flex-row gap-2">
