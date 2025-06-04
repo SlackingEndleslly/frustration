@@ -81,6 +81,15 @@ const GamePage = () => {
     setActiveAttack(attackId);
     setIsAnimating(true);
     
+    // Show appropriate effect immediately - no delay
+    if (attackId === "punch") {
+      setShowPunchEffect(true);
+      setShowKickEffect(false);
+    } else if (attackId === "kick") {
+      setShowKickEffect(true);
+      setShowPunchEffect(false);
+    }
+    
     try {
       // Play sound immediately - create new audio instance for instant playback
       const audio = new Audio();
@@ -122,15 +131,6 @@ const GamePage = () => {
         }
       });
       
-      // Show appropriate effect based on attack type
-      if (attackId === "punch") {
-        setShowPunchEffect(true);
-        setShowKickEffect(false);
-      } else if (attackId === "kick") {
-        setShowKickEffect(true);
-        setShowPunchEffect(false);
-      }
-      
       // Apply damage after a short delay
       setTimeout(() => {
         damage(damageAmount);
@@ -141,8 +141,8 @@ const GamePage = () => {
           setActiveAttack(null);
           setShowPunchEffect(false);
           setShowKickEffect(false);
-        }, 500);
-      }, 300);
+        }, 400);
+      }, 200);
     } catch (error) {
       console.error("Error during attack:", error);
       setIsAnimating(false);

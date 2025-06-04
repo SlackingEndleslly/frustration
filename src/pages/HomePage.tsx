@@ -15,6 +15,15 @@ const HomePage = () => {
   return (
     <Layout>
       <div className="flex flex-col items-center justify-center max-w-md mx-auto text-center">
+        {/* Company Logo */}
+        <div className="mb-6">
+          <img 
+            src="/lovable-uploads/10cb857d-3fd1-4d83-9395-82bb0dc17957.png" 
+            alt="Abaci Software Logo" 
+            className="w-20 h-20 mx-auto object-contain"
+          />
+        </div>
+        
         <div className="rage-card mb-8 animate-float">
           <h1 className="text-5xl md:text-6xl font-bold mb-4 text-gradient bg-gradient-to-r from-rage via-rage-accent to-rage-highlight bg-clip-text text-transparent">
             FRUSTRATION
