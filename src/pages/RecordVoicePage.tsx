@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -30,13 +31,6 @@ const RecordVoicePage = () => {
     try {
       console.log("Requesting microphone permission...");
       
-      // For Capacitor apps (mobile)
-      if (Capacitor.isNativePlatform()) {
-        console.log("Native platform detected, requesting permissions");
-        // For native platforms, we'll rely on the getUserMedia call to trigger permission
-        // The native app will handle the permission dialog
-      }
-
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -66,6 +60,103 @@ const RecordVoicePage = () => {
         toast.error("Could not access microphone. Please check your device settings and permissions.");
       }
       return false;
+    }
+  };
+
+  const startRecording = async () => {
+    console.log("Starting recording...");
+    
+    // Request permission if not already granted
+    if (!permissionGranted) {
+      const granted = await requestMicrophonePermission();
+      if (!granted) {
+        return;
+      }
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        } 
+      });
+
+      audioChunksRef.current = [];
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { 
+          type: mediaRecorder.mimeType 
+        });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        toast.success("Recording completed!");
+      };
+
+      mediaRecorder.start(100); // Collect data every 100ms
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          if (newTime >= maxRecordingTime) {
+            stopRecording();
+            return maxRecordingTime;
+          }
+          return newTime;
+        });
+      }, 1000);
+
+      console.log("Recording started successfully");
+      toast.success("Recording started!");
+      
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      setIsRecording(false);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error("Microphone access denied. Please allow microphone permissions.");
+      } else {
+        toast.error("Failed to start recording. Please try again.");
+      }
+    }
+  };
+
+  const stopRecording = () => {
+    console.log("Stopping recording...");
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+      } catch (error) {
+        console.error("Error stopping recording:", error);
+      }
     }
   };
 
@@ -283,7 +374,7 @@ const RecordVoicePage = () => {
                     }
                     setIsPlaying(false);
                     setIsPaused(false);
-                    setPermissionDenied(false);
+                    setPermissionGranted(false);
                   }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-white"
