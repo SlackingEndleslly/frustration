@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -16,8 +16,8 @@ const RecordVoicePage = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,42 +25,88 @@ const RecordVoicePage = () => {
 
   const maxRecordingTime = 30;
 
-  // Auto-request permissions on component mount for mobile devices
+  // Check and request permissions
+  const requestMicrophonePermission = async () => {
+    try {
+      console.log("Requesting microphone permission...");
+      
+      // For Capacitor apps (mobile)
+      if (Capacitor.isNativePlatform()) {
+        console.log("Native platform detected, requesting permissions");
+        // For native platforms, we'll rely on the getUserMedia call to trigger permission
+        // The native app will handle the permission dialog
+      }
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      // Stop the stream immediately after getting permission
+      stream.getTracks().forEach(track => track.stop());
+      setPermissionGranted(true);
+      console.log("Microphone permission granted");
+      return true;
+    } catch (error) {
+      console.error("Microphone permission denied:", error);
+      setPermissionGranted(false);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error("Microphone access denied. Please allow microphone permissions in your device settings.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found on this device.");
+      } else if (error.name === 'NotSupportedError') {
+        toast.error("Microphone not supported on this device.");
+      } else {
+        toast.error("Could not access microphone. Please check your device settings and permissions.");
+      }
+      return false;
+    }
+  };
+
+  // Check permissions on mount
   useEffect(() => {
-    const requestInitialPermissions = async () => {
-      if (!permissionRequested) {
-        setPermissionRequested(true);
+    const checkPermissions = async () => {
+      if (!permissionChecked) {
+        setPermissionChecked(true);
+        
         try {
           // Check if getUserMedia is available
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             console.error("getUserMedia not supported");
-            setPermissionDenied(true);
+            setPermissionGranted(false);
             return;
           }
 
-          // Request permission immediately
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: 44100
-            } 
-          });
+          // For web browsers, check existing permissions
+          if (!Capacitor.isNativePlatform()) {
+            try {
+              const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+              if (permissionStatus.state === 'granted') {
+                setPermissionGranted(true);
+                return;
+              }
+            } catch (e) {
+              console.log("Permission query not supported, will request on record");
+            }
+          }
           
-          // Stop the stream immediately after getting permission
-          stream.getTracks().forEach(track => track.stop());
-          setPermissionDenied(false);
-          console.log("Microphone permission granted");
+          // Don't auto-request on mount, wait for user interaction
+          setPermissionGranted(false);
         } catch (error) {
-          console.error("Initial permission request failed:", error);
-          setPermissionDenied(true);
+          console.error("Error checking permissions:", error);
+          setPermissionGranted(false);
         }
       }
     };
 
-    requestInitialPermissions();
-  }, [permissionRequested]);
+    checkPermissions();
+  }, [permissionChecked]);
 
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
@@ -99,156 +145,6 @@ const RecordVoicePage = () => {
       }
     };
   }, []);
-
-  const requestMicrophonePermission = async () => {
-    try {
-      console.log("Requesting microphone permission...");
-      
-      // Check if getUserMedia is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("getUserMedia not supported on this device");
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-      
-      stream.getTracks().forEach(track => track.stop());
-      setPermissionDenied(false);
-      console.log("Microphone permission granted successfully");
-      return true;
-    } catch (error) {
-      console.error("Microphone permission denied:", error);
-      setPermissionDenied(true);
-      
-      // More specific error handling
-      if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions in your device settings.");
-      } else if (error.name === 'NotFoundError') {
-        toast.error("No microphone found on this device.");
-      } else if (error.name === 'NotSupportedError') {
-        toast.error("Microphone not supported on this device.");
-      } else {
-        toast.error("Could not access microphone. Please check your device settings and permissions.");
-      }
-      return false;
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      console.log("Starting recording process...");
-      
-      const hasPermission = await requestMicrophonePermission();
-      if (!hasPermission) {
-        console.log("Permission denied, cannot start recording");
-        return;
-      }
-
-      console.log("Getting user media stream...");
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-
-      console.log("Creating MediaRecorder...");
-      let mimeType = 'audio/webm';
-      if (!MediaRecorder.isTypeSupported('audio/webm')) {
-        if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          mimeType = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
-          mimeType = 'audio/wav';
-        } else {
-          mimeType = '';
-        }
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        console.log("Data available:", event.data.size);
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        console.log("Recording stopped, creating blob...");
-        const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mimeType || 'audio/webm' 
-        });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-        setIsRecording(false);
-
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-        stream.getTracks().forEach(track => track.stop());
-        console.log("Recording completed successfully");
-      };
-
-      mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
-        toast.error("Recording failed. Please try again.");
-        setIsRecording(false);
-      };
-
-      setIsRecording(true);
-      setRecordingTime(0);
-      setAudioUrl(null);
-      mediaRecorder.start(1000); // Collect data every second
-      console.log("MediaRecorder started");
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => {
-          const newTime = prev + 1;
-          if (newTime >= maxRecordingTime) {
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-              try {
-                mediaRecorderRef.current.stop();
-              } catch (error) {
-                console.error("Error stopping media recorder:", error);
-              }
-            }
-            setIsRecording(false);
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-              timerRef.current = null;
-            }
-            toast.success("Recording complete!");
-            return maxRecordingTime;
-          }
-          return newTime;
-        });
-      }, 1000);
-
-      toast.success("Recording started!");
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      setPermissionDenied(true);
-      
-      if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions.");
-      } else if (error.name === 'NotFoundError') {
-        toast.error("No microphone found on this device.");
-      } else {
-        toast.error("Could not start recording. Please check your device settings.");
-      }
-    }
-  };
 
   const handlePlayPause = () => {
     if (audioUrl && audioRef.current) {
@@ -319,7 +215,7 @@ const RecordVoicePage = () => {
               </Button>
             )}
 
-            {permissionDenied && !isRecording && !audioUrl && (
+            {!permissionGranted && !isRecording && !audioUrl && permissionChecked && (
               <div className="text-center animate-float">
                 <p className="text-sm text-red-400 mb-2">Microphone access required</p>
                 <Button 
@@ -327,7 +223,7 @@ const RecordVoicePage = () => {
                   variant="outline"
                   className="w-full"
                 >
-                  Try Again
+                  Allow Microphone Access
                 </Button>
               </div>
             )}
