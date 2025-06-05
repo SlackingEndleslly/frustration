@@ -17,12 +17,50 @@ const RecordVoicePage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const maxRecordingTime = 30;
+
+  // Auto-request permissions on component mount for mobile devices
+  useEffect(() => {
+    const requestInitialPermissions = async () => {
+      if (!permissionRequested) {
+        setPermissionRequested(true);
+        try {
+          // Check if getUserMedia is available
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.error("getUserMedia not supported");
+            setPermissionDenied(true);
+            return;
+          }
+
+          // Request permission immediately
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100
+            } 
+          });
+          
+          // Stop the stream immediately after getting permission
+          stream.getTracks().forEach(track => track.stop());
+          setPermissionDenied(false);
+          console.log("Microphone permission granted");
+        } catch (error) {
+          console.error("Initial permission request failed:", error);
+          setPermissionDenied(true);
+        }
+      }
+    };
+
+    requestInitialPermissions();
+  }, [permissionRequested]);
 
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
@@ -64,22 +102,12 @@ const RecordVoicePage = () => {
 
   const requestMicrophonePermission = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      setPermissionDenied(false);
-      return true;
-    } catch (error) {
-      console.error("Microphone permission denied:", error);
-      setPermissionDenied(true);
-      toast.error("Microphone access is required to record your rage voice. Please allow microphone permissions.");
-      return false;
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const hasPermission = await requestMicrophonePermission();
-      if (!hasPermission) return;
+      console.log("Requesting microphone permission...");
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("getUserMedia not supported on this device");
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -89,23 +117,76 @@ const RecordVoicePage = () => {
           sampleRate: 44100
         } 
       });
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      });
       
+      stream.getTracks().forEach(track => track.stop());
+      setPermissionDenied(false);
+      console.log("Microphone permission granted successfully");
+      return true;
+    } catch (error) {
+      console.error("Microphone permission denied:", error);
+      setPermissionDenied(true);
+      
+      // More specific error handling
+      if (error.name === 'NotAllowedError') {
+        toast.error("Microphone access denied. Please allow microphone permissions in your device settings.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found on this device.");
+      } else if (error.name === 'NotSupportedError') {
+        toast.error("Microphone not supported on this device.");
+      } else {
+        toast.error("Could not access microphone. Please check your device settings and permissions.");
+      }
+      return false;
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      console.log("Starting recording process...");
+      
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        console.log("Permission denied, cannot start recording");
+        return;
+      }
+
+      console.log("Getting user media stream...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        } 
+      });
+
+      console.log("Creating MediaRecorder...");
+      let mimeType = 'audio/webm';
+      if (!MediaRecorder.isTypeSupported('audio/webm')) {
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav';
+        } else {
+          mimeType = '';
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log("Data available:", event.data.size);
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
+        console.log("Recording stopped, creating blob...");
         const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mediaRecorder.mimeType || 'audio/webm' 
+          type: mimeType || 'audio/webm' 
         });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
@@ -116,12 +197,20 @@ const RecordVoicePage = () => {
           timerRef.current = null;
         }
         stream.getTracks().forEach(track => track.stop());
+        console.log("Recording completed successfully");
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        toast.error("Recording failed. Please try again.");
+        setIsRecording(false);
       };
 
       setIsRecording(true);
       setRecordingTime(0);
       setAudioUrl(null);
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // Collect data every second
+      console.log("MediaRecorder started");
 
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
@@ -148,9 +237,16 @@ const RecordVoicePage = () => {
 
       toast.success("Recording started!");
     } catch (error) {
-      console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please check your device settings.");
+      console.error("Error starting recording:", error);
       setPermissionDenied(true);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error("Microphone access denied. Please allow microphone permissions.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found on this device.");
+      } else {
+        toast.error("Could not start recording. Please check your device settings.");
+      }
     }
   };
 
@@ -216,7 +312,7 @@ const RecordVoicePage = () => {
               <Button 
                 onClick={startRecording}
                 className="rage-button w-full flex items-center justify-center gap-2 animate-float"
-                disabled={permissionDenied}
+                disabled={false}
               >
                 <Mic className="h-5 w-5" />
                 <span>Record Your Frustration</span>
@@ -224,7 +320,7 @@ const RecordVoicePage = () => {
             )}
 
             {permissionDenied && !isRecording && !audioUrl && (
-              <div className="text-center">
+              <div className="text-center animate-float">
                 <p className="text-sm text-red-400 mb-2">Microphone access required</p>
                 <Button 
                   onClick={startRecording}
