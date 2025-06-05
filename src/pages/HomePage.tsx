@@ -22,13 +22,13 @@ const HomePage = () => {
             <img 
               src="/lovable-uploads/10cb857d-3fd1-4d83-9395-82bb0dc17957.png" 
               alt="Company Logo" 
-              className="object-contain w-full h-full"
+              className="object-contain w-full h-full animate-float"
             />
           </div>
-          <h1 className="text-3xl font-bold mb-4 text-rage animate-float">
+          <h1 className="text-3xl font-bold mb-4 animate-float bg-gradient-to-r from-rage via-rage-accent to-rage-highlight bg-clip-text text-transparent">
             FRUSTRATION RAGE FEST
           </h1>
-          <p className="text-lg text-muted-foreground mb-8">
+          <p className="text-lg text-muted-foreground mb-8 animate-float">
             Vent your frustration by beating up your buddy! Upload a photo and let the rage begin.
           </p>
         </div>
@@ -36,17 +36,9 @@ const HomePage = () => {
         <div className="space-y-4">
           <Button 
             onClick={() => navigate("/select-buddy")}
-            className="rage-button w-full text-lg py-3"
+            className="rage-button w-full text-lg py-3 animate-float"
           >
             Start Rage Session
-          </Button>
-          
-          <Button 
-            onClick={() => navigate("/play-game")}
-            variant="outline"
-            className="w-full"
-          >
-            Continue Previous Session
           </Button>
         </div>
       </div>
