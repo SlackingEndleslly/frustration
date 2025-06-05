@@ -9,7 +9,6 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { resetGame } = useGame();
 
-  // Reset game state when returning to home page (silently)
   useEffect(() => {
     resetGame();
   }, [resetGame]);
