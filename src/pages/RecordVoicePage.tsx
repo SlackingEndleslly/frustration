@@ -7,7 +7,20 @@ import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
-import { VoiceRecorder } from '@capacitor-community/voice-recorder';
+
+// Dynamic import for voice recorder to handle cases where it's not available
+let VoiceRecorder: any = null;
+if (Capacitor.isNativePlatform()) {
+  try {
+    import('@capacitor-community/voice-recorder').then(module => {
+      VoiceRecorder = module.VoiceRecorder;
+    }).catch(error => {
+      console.log("Voice recorder plugin not available:", error);
+    });
+  } catch (error) {
+    console.log("Voice recorder plugin not available:", error);
+  }
+}
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -31,7 +44,7 @@ const RecordVoicePage = () => {
     try {
       console.log("Requesting native microphone permission...");
       
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && VoiceRecorder) {
         // Request permission using Capacitor Voice Recorder
         const permissionStatus = await VoiceRecorder.requestAudioRecordingPermission();
         console.log("Native permission status:", permissionStatus);
@@ -51,8 +64,8 @@ const RecordVoicePage = () => {
       }
     } catch (error) {
       console.error("Error requesting native permission:", error);
-      toast.error("Failed to request microphone permission. Please check your device settings.");
-      return false;
+      // Fallback to web permission if native fails
+      return await requestWebPermission();
     }
   };
 
@@ -70,6 +83,7 @@ const RecordVoicePage = () => {
       
       stream.getTracks().forEach(track => track.stop());
       setPermissionGranted(true);
+      toast.success("Microphone permission granted!");
       return true;
     } catch (error) {
       console.error("Web microphone permission denied:", error);
@@ -97,7 +111,7 @@ const RecordVoicePage = () => {
     }
 
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && VoiceRecorder) {
         // Use native recording
         console.log("Starting native recording...");
         await VoiceRecorder.startRecording();
@@ -191,7 +205,7 @@ const RecordVoicePage = () => {
     }
 
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && VoiceRecorder) {
         // Stop native recording
         const result = await VoiceRecorder.stopRecording();
         console.log("Native recording result:", result);
@@ -232,7 +246,7 @@ const RecordVoicePage = () => {
         setPermissionChecked(true);
         
         try {
-          if (Capacitor.isNativePlatform()) {
+          if (Capacitor.isNativePlatform() && VoiceRecorder) {
             // Check native permission status
             const hasPermission = await VoiceRecorder.hasAudioRecordingPermission();
             console.log("Has native permission:", hasPermission);
