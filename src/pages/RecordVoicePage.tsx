@@ -7,7 +7,6 @@ import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
-import { Capacitor } from '@capacitor/core';
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -18,7 +17,7 @@ const RecordVoicePage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [permissionChecked, setPermissionChecked] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -26,12 +25,18 @@ const RecordVoicePage = () => {
 
   const maxRecordingTime = 30;
 
-  // Check and request permissions
+  // Request microphone permission with improved handling
   const requestMicrophonePermission = async () => {
     try {
       console.log("Requesting microphone permission...");
+      setPermissionRequested(true);
       
-      // Request microphone access
+      // First check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("MediaDevices API not supported");
+      }
+
+      // Request access to microphone
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -45,19 +50,20 @@ const RecordVoicePage = () => {
       stream.getTracks().forEach(track => track.stop());
       setPermissionGranted(true);
       console.log("Microphone permission granted");
+      toast.success("Microphone access granted!");
       return true;
-    } catch (error) {
-      console.error("Microphone permission denied:", error);
+    } catch (error: any) {
+      console.error("Microphone permission error:", error);
       setPermissionGranted(false);
       
       if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions in your device settings.");
+        toast.error("Microphone access denied. Please allow microphone permissions and try again.");
       } else if (error.name === 'NotFoundError') {
         toast.error("No microphone found on this device.");
       } else if (error.name === 'NotSupportedError') {
         toast.error("Microphone not supported on this device.");
       } else {
-        toast.error("Could not access microphone. Please check your device settings and permissions.");
+        toast.error("Could not access microphone. Please check your device settings.");
       }
       return false;
     }
@@ -66,12 +72,10 @@ const RecordVoicePage = () => {
   const startRecording = async () => {
     console.log("Starting recording...");
     
-    // Request permission if not already granted
-    if (!permissionGranted) {
-      const granted = await requestMicrophonePermission();
-      if (!granted) {
-        return;
-      }
+    // Always request permission when starting recording
+    const granted = await requestMicrophonePermission();
+    if (!granted) {
+      return;
     }
 
     try {
@@ -111,7 +115,7 @@ const RecordVoicePage = () => {
         toast.success("Recording completed!");
       };
 
-      mediaRecorder.start(100); // Collect data every 100ms
+      mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingTime(0);
 
@@ -130,7 +134,7 @@ const RecordVoicePage = () => {
       console.log("Recording started successfully");
       toast.success("Recording started!");
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting recording:", error);
       setIsRecording(false);
       
@@ -160,45 +164,6 @@ const RecordVoicePage = () => {
     }
   };
 
-  // Check permissions on mount
-  useEffect(() => {
-    const checkPermissions = async () => {
-      if (!permissionChecked) {
-        setPermissionChecked(true);
-        
-        try {
-          // Check if getUserMedia is available
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.error("getUserMedia not supported");
-            setPermissionGranted(false);
-            return;
-          }
-
-          // For web browsers, check existing permissions
-          if (!Capacitor.isNativePlatform()) {
-            try {
-              const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-              if (permissionStatus.state === 'granted') {
-                setPermissionGranted(true);
-                return;
-              }
-            } catch (e) {
-              console.log("Permission query not supported, will request on record");
-            }
-          }
-          
-          // Don't auto-request on mount, wait for user interaction
-          setPermissionGranted(false);
-        } catch (error) {
-          console.error("Error checking permissions:", error);
-          setPermissionGranted(false);
-        }
-      }
-    };
-
-    checkPermissions();
-  }, [permissionChecked]);
-
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
       const audio = new Audio(audioUrl);
@@ -225,7 +190,6 @@ const RecordVoicePage = () => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         try {
           mediaRecorderRef.current.stop();
-          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         } catch (error) {
           console.error("Error stopping media recorder:", error);
         }
@@ -277,9 +241,9 @@ const RecordVoicePage = () => {
 
   return (
     <Layout title="RECORD YOUR RAGE">
-      <div className="rage-card max-w-md w-full mx-auto animate-float">
+      <div className="rage-card max-w-md w-full mx-auto">
         {buddyImage && (
-          <div className="mb-6 buddy-container w-1/2 mx-auto animate-float">
+          <div className="mb-6 buddy-container w-1/2 mx-auto">
             <img 
               src={buddyImage.src} 
               alt={buddyImage.alt} 
@@ -289,8 +253,8 @@ const RecordVoicePage = () => {
         )}
 
         <div className="mb-6">
-          <h3 className="text-xl font-medium mb-4 text-center animate-float">Record Your Battle Cry</h3>
-          <p className="text-sm text-muted-foreground mb-6 text-center animate-float">
+          <h3 className="text-xl font-medium mb-4 text-center">Record Your Battle Cry</h3>
+          <p className="text-sm text-muted-foreground mb-6 text-center">
             Record your frustration for 30 seconds. This will be your battle cry when attacking!
           </p>
 
@@ -298,7 +262,7 @@ const RecordVoicePage = () => {
             {!audioUrl && !isRecording && (
               <Button 
                 onClick={startRecording}
-                className="rage-button w-full flex items-center justify-center gap-2 animate-float"
+                className="rage-button w-full flex items-center justify-center gap-2"
                 disabled={false}
               >
                 <Mic className="h-5 w-5" />
@@ -306,21 +270,8 @@ const RecordVoicePage = () => {
               </Button>
             )}
 
-            {!permissionGranted && !isRecording && !audioUrl && permissionChecked && (
-              <div className="text-center animate-float">
-                <p className="text-sm text-red-400 mb-2">Microphone access required</p>
-                <Button 
-                  onClick={startRecording}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Allow Microphone Access
-                </Button>
-              </div>
-            )}
-
             {isRecording && (
-              <div className="w-full space-y-4 animate-float">
+              <div className="w-full space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">Recording...</span>
                   <span className="text-sm font-medium">{recordingTime}s / {maxRecordingTime}s</span>
@@ -331,18 +282,18 @@ const RecordVoicePage = () => {
                 />
 
                 <Button 
-                  disabled={true}
+                  onClick={stopRecording}
                   variant="destructive"
-                  className="w-full flex items-center justify-center gap-2 opacity-40 pointer-events-none"
+                  className="w-full flex items-center justify-center gap-2"
                 >
                   <Mic className="h-4 w-4" />
-                  <span>Recording... (Wait {maxRecordingTime - recordingTime}s)</span>
+                  <span>Stop Recording</span>
                 </Button>
               </div>
             )}
 
             {audioUrl && (
-              <div className="w-full space-y-4 animate-float">
+              <div className="w-full space-y-4">
                 <div className="w-full flex flex-row gap-2">
                   <Button 
                     onClick={handlePlayPause}
@@ -375,6 +326,7 @@ const RecordVoicePage = () => {
                     setIsPlaying(false);
                     setIsPaused(false);
                     setPermissionGranted(false);
+                    setPermissionRequested(false);
                   }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-white"
@@ -386,7 +338,7 @@ const RecordVoicePage = () => {
           </div>
         </div>
 
-        <div className="flex justify-between animate-float">
+        <div className="flex justify-between">
           <Button 
             onClick={(e) => {
               e.preventDefault();

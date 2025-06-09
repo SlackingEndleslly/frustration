@@ -73,6 +73,16 @@
            shadow-[0_0_25px_rgba(139,92,246,0.4)]
            transition-all duration-300;
   }
+
+  /* Floating animation - only for home page */
+  .home-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
   
   /* Attack effect styling - improved positioning and z-index */
   .attack-effect {
