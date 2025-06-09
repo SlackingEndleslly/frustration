@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -18,6 +18,7 @@ const RecordVoicePage = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,36 +26,77 @@ const RecordVoicePage = () => {
 
   const maxRecordingTime = 30;
 
-  // Request microphone permission
-  const requestPermission = async () => {
+  // Enhanced permission request for mobile devices
+  const requestMicrophonePermission = async () => {
+    console.log("Requesting microphone permission...");
+    setIsRequestingPermission(true);
+    
     try {
-      console.log("Requesting microphone permission...");
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-      
-      stream.getTracks().forEach(track => track.stop());
-      setPermissionGranted(true);
-      toast.success("Microphone permission granted!");
-      return true;
-    } catch (error: any) {
-      console.error("Microphone permission denied:", error);
-      setPermissionGranted(false);
-      
-      if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions.");
-      } else if (error.name === 'NotFoundError') {
-        toast.error("No microphone found on this device.");
+      // For Capacitor/mobile apps, show native permission dialog
+      if (Capacitor.isNativePlatform()) {
+        console.log("Running on native platform, requesting native permissions");
+        
+        // Force permission request through getUserMedia which triggers native dialog
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100
+            } 
+          });
+          
+          // Stop the stream immediately after getting permission
+          stream.getTracks().forEach(track => track.stop());
+          setPermissionGranted(true);
+          toast.success("Microphone permission granted!");
+          return true;
+        } catch (error: any) {
+          console.error("Native permission request failed:", error);
+          
+          if (error.name === 'NotAllowedError') {
+            toast.error("Microphone access denied. Please go to your device settings and enable microphone access for this app.");
+          } else if (error.name === 'NotFoundError') {
+            toast.error("No microphone found on this device.");
+          } else {
+            toast.error("Could not access microphone. Please check your device settings and allow microphone permissions.");
+          }
+          setPermissionGranted(false);
+          return false;
+        }
       } else {
-        toast.error("Could not access microphone. Please check your device settings.");
+        // Web browser permission request
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100
+            } 
+          });
+          
+          stream.getTracks().forEach(track => track.stop());
+          setPermissionGranted(true);
+          toast.success("Microphone permission granted!");
+          return true;
+        } catch (error: any) {
+          console.error("Web permission request failed:", error);
+          
+          if (error.name === 'NotAllowedError') {
+            toast.error("Microphone access denied. Please allow microphone permissions in your browser.");
+          } else if (error.name === 'NotFoundError') {
+            toast.error("No microphone found on this device.");
+          } else {
+            toast.error("Could not access microphone. Please check your browser settings.");
+          }
+          setPermissionGranted(false);
+          return false;
+        }
       }
-      return false;
+    } finally {
+      setIsRequestingPermission(false);
     }
   };
 
@@ -63,7 +105,7 @@ const RecordVoicePage = () => {
     console.log("Starting recording...");
     
     // Always request permission when starting recording
-    const granted = await requestPermission();
+    const granted = await requestMicrophonePermission();
     if (!granted) {
       return;
     }
@@ -123,7 +165,7 @@ const RecordVoicePage = () => {
     } catch (error) {
       console.error("Error starting recording:", error);
       setIsRecording(false);
-      toast.error("Failed to start recording. Please try again.");
+      toast.error("Failed to start recording. Please ensure microphone permissions are granted.");
     }
   };
 
@@ -161,6 +203,15 @@ const RecordVoicePage = () => {
             return;
           }
 
+          // For mobile/native platforms, don't pre-check permissions
+          // This prevents issues with permission state checking
+          if (Capacitor.isNativePlatform()) {
+            console.log("Native platform detected, will request permission on record");
+            setPermissionGranted(false);
+            return;
+          }
+
+          // For web, try to check permission status
           try {
             const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
             if (permissionStatus.state === 'granted') {
@@ -278,26 +329,37 @@ const RecordVoicePage = () => {
 
           <div className="flex flex-col items-center gap-4">
             {!audioUrl && !isRecording && (
-              <Button 
-                onClick={startRecording}
-                className="rage-button w-full flex items-center justify-center gap-2"
-                disabled={false}
-              >
-                <Mic className="h-5 w-5" />
-                <span>Record Your Frustration</span>
-              </Button>
-            )}
-
-            {!permissionGranted && !isRecording && !audioUrl && permissionChecked && (
-              <div className="text-center">
-                <p className="text-sm text-red-400 mb-2">Microphone access required</p>
+              <div className="w-full space-y-4">
                 <Button 
                   onClick={startRecording}
-                  variant="outline"
-                  className="w-full"
+                  className="rage-button w-full flex items-center justify-center gap-2"
+                  disabled={isRequestingPermission}
                 >
-                  Allow Microphone Access
+                  <Mic className="h-5 w-5" />
+                  <span>{isRequestingPermission ? "Requesting Permission..." : "Record Your Frustration"}</span>
                 </Button>
+                
+                {Capacitor.isNativePlatform() && !permissionGranted && (
+                  <div className="text-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <p className="text-sm text-yellow-400 mb-2">
+                      📱 On mobile devices, you'll be asked to allow microphone access when you tap "Record"
+                    </p>
+                    <p className="text-xs text-yellow-300">
+                      If permission is denied, please go to your device Settings → Apps → Frustration → Permissions and enable Microphone
+                    </p>
+                  </div>
+                )}
+                
+                {!Capacitor.isNativePlatform() && !permissionGranted && (
+                  <div className="text-center p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-sm text-blue-400 mb-2">
+                      🎤 Microphone access required for recording
+                    </p>
+                    <p className="text-xs text-blue-300">
+                      Click "Record" to grant microphone permissions
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
