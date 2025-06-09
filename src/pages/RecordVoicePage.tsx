@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,8 @@ import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
+import { VoiceRecorder } from '@capacitor-community/voice-recorder';
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const RecordVoicePage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,18 +26,39 @@ const RecordVoicePage = () => {
 
   const maxRecordingTime = 30;
 
-  // Request microphone permission with improved handling
-  const requestMicrophonePermission = async () => {
+  // Request native microphone permission
+  const requestNativePermission = async () => {
     try {
-      console.log("Requesting microphone permission...");
-      setPermissionRequested(true);
+      console.log("Requesting native microphone permission...");
       
-      // First check if mediaDevices is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("MediaDevices API not supported");
+      if (Capacitor.isNativePlatform()) {
+        // Request permission using Capacitor Voice Recorder
+        const permissionStatus = await VoiceRecorder.requestAudioRecordingPermission();
+        console.log("Native permission status:", permissionStatus);
+        
+        if (permissionStatus.value) {
+          setPermissionGranted(true);
+          toast.success("Microphone permission granted!");
+          return true;
+        } else {
+          setPermissionGranted(false);
+          toast.error("Microphone permission denied. Please enable it in your device settings.");
+          return false;
+        }
+      } else {
+        // Fallback to web API for browser
+        return await requestWebPermission();
       }
+    } catch (error) {
+      console.error("Error requesting native permission:", error);
+      toast.error("Failed to request microphone permission. Please check your device settings.");
+      return false;
+    }
+  };
 
-      // Request access to microphone
+  // Web permission fallback
+  const requestWebPermission = async () => {
+    try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -46,22 +68,17 @@ const RecordVoicePage = () => {
         } 
       });
       
-      // Stop the stream immediately after getting permission
       stream.getTracks().forEach(track => track.stop());
       setPermissionGranted(true);
-      console.log("Microphone permission granted");
-      toast.success("Microphone access granted!");
       return true;
-    } catch (error: any) {
-      console.error("Microphone permission error:", error);
+    } catch (error) {
+      console.error("Web microphone permission denied:", error);
       setPermissionGranted(false);
       
       if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions and try again.");
+        toast.error("Microphone access denied. Please allow microphone permissions.");
       } else if (error.name === 'NotFoundError') {
         toast.error("No microphone found on this device.");
-      } else if (error.name === 'NotSupportedError') {
-        toast.error("Microphone not supported on this device.");
       } else {
         toast.error("Could not access microphone. Please check your device settings.");
       }
@@ -69,84 +86,103 @@ const RecordVoicePage = () => {
     }
   };
 
+  // Start recording with native support
   const startRecording = async () => {
     console.log("Starting recording...");
     
     // Always request permission when starting recording
-    const granted = await requestMicrophonePermission();
+    const granted = await requestNativePermission();
     if (!granted) {
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-
-      audioChunksRef.current = [];
-      
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      });
-      
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mediaRecorder.mimeType 
-        });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
+      if (Capacitor.isNativePlatform()) {
+        // Use native recording
+        console.log("Starting native recording...");
+        await VoiceRecorder.startRecording();
+        setIsRecording(true);
+        setRecordingTime(0);
         
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        // Start timer
+        timerRef.current = setInterval(() => {
+          setRecordingTime(prev => {
+            const newTime = prev + 1;
+            if (newTime >= maxRecordingTime) {
+              stopRecording();
+              return maxRecordingTime;
+            }
+            return newTime;
+          });
+        }, 1000);
         
-        toast.success("Recording completed!");
-      };
-
-      mediaRecorder.start(100);
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          const newTime = prev + 1;
-          if (newTime >= maxRecordingTime) {
-            stopRecording();
-            return maxRecordingTime;
-          }
-          return newTime;
-        });
-      }, 1000);
-
-      console.log("Recording started successfully");
-      toast.success("Recording started!");
-      
-    } catch (error: any) {
+        toast.success("Recording started!");
+      } else {
+        // Fallback to web recording
+        await startWebRecording();
+      }
+    } catch (error) {
       console.error("Error starting recording:", error);
       setIsRecording(false);
-      
-      if (error.name === 'NotAllowedError') {
-        toast.error("Microphone access denied. Please allow microphone permissions.");
-      } else {
-        toast.error("Failed to start recording. Please try again.");
-      }
+      toast.error("Failed to start recording. Please try again.");
     }
   };
 
-  const stopRecording = () => {
+  // Web recording fallback
+  const startWebRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 44100
+      } 
+    });
+
+    audioChunksRef.current = [];
+    
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+    });
+    
+    mediaRecorderRef.current = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunksRef.current, { 
+        type: mediaRecorder.mimeType 
+      });
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      stream.getTracks().forEach(track => track.stop());
+      toast.success("Recording completed!");
+    };
+
+    mediaRecorder.start(100);
+    setIsRecording(true);
+    setRecordingTime(0);
+
+    // Start timer
+    timerRef.current = setInterval(() => {
+      setRecordingTime(prev => {
+        const newTime = prev + 1;
+        if (newTime >= maxRecordingTime) {
+          stopRecording();
+          return maxRecordingTime;
+        }
+        return newTime;
+      });
+    }, 1000);
+  };
+
+  // Stop recording
+  const stopRecording = async () => {
     console.log("Stopping recording...");
     
     if (timerRef.current) {
@@ -154,15 +190,82 @@ const RecordVoicePage = () => {
       timerRef.current = null;
     }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.stop();
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Stop native recording
+        const result = await VoiceRecorder.stopRecording();
+        console.log("Native recording result:", result);
+        
+        if (result.value && result.value.recordDataBase64) {
+          // Convert base64 to blob URL
+          const base64Data = result.value.recordDataBase64;
+          const binaryString = window.atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const audioBlob = new Blob([bytes], { type: 'audio/m4a' });
+          const url = URL.createObjectURL(audioBlob);
+          setAudioUrl(url);
+          toast.success("Recording completed!");
+        }
+        
         setIsRecording(false);
-      } catch (error) {
-        console.error("Error stopping recording:", error);
+      } else {
+        // Stop web recording
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+          setIsRecording(false);
+        }
       }
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+      setIsRecording(false);
+      toast.error("Error stopping recording.");
     }
   };
+
+  // Check permissions on mount
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!permissionChecked) {
+        setPermissionChecked(true);
+        
+        try {
+          if (Capacitor.isNativePlatform()) {
+            // Check native permission status
+            const hasPermission = await VoiceRecorder.hasAudioRecordingPermission();
+            console.log("Has native permission:", hasPermission);
+            setPermissionGranted(hasPermission.value || false);
+          } else {
+            // Check web permissions
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+              console.error("getUserMedia not supported");
+              setPermissionGranted(false);
+              return;
+            }
+
+            try {
+              const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+              if (permissionStatus.state === 'granted') {
+                setPermissionGranted(true);
+                return;
+              }
+            } catch (e) {
+              console.log("Permission query not supported, will request on record");
+            }
+            
+            setPermissionGranted(false);
+          }
+        } catch (error) {
+          console.error("Error checking permissions:", error);
+          setPermissionGranted(false);
+        }
+      }
+    };
+
+    checkPermissions();
+  }, [permissionChecked]);
 
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
@@ -270,6 +373,19 @@ const RecordVoicePage = () => {
               </Button>
             )}
 
+            {!permissionGranted && !isRecording && !audioUrl && permissionChecked && (
+              <div className="text-center">
+                <p className="text-sm text-red-400 mb-2">Microphone access required</p>
+                <Button 
+                  onClick={startRecording}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Allow Microphone Access
+                </Button>
+              </div>
+            )}
+
             {isRecording && (
               <div className="w-full space-y-4">
                 <div className="flex items-center justify-between mb-2">
@@ -326,7 +442,7 @@ const RecordVoicePage = () => {
                     setIsPlaying(false);
                     setIsPaused(false);
                     setPermissionGranted(false);
-                    setPermissionRequested(false);
+                    setPermissionChecked(false);
                   }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-white"
