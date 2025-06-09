@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,20 +8,6 @@ import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
-
-// Dynamic import for voice recorder to handle cases where it's not available
-let VoiceRecorder: any = null;
-if (Capacitor.isNativePlatform()) {
-  try {
-    import('@capacitor-community/voice-recorder').then(module => {
-      VoiceRecorder = module.VoiceRecorder;
-    }).catch(error => {
-      console.log("Voice recorder plugin not available:", error);
-    });
-  } catch (error) {
-    console.log("Voice recorder plugin not available:", error);
-  }
-}
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -32,12 +19,30 @@ const RecordVoicePage = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
+  const [VoiceRecorder, setVoiceRecorder] = useState<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const maxRecordingTime = 30;
+
+  // Load voice recorder plugin dynamically
+  useEffect(() => {
+    const loadVoiceRecorder = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const module = await import('@capacitor-community/voice-recorder');
+          setVoiceRecorder(module.VoiceRecorder);
+          console.log("Voice recorder plugin loaded successfully");
+        } catch (error) {
+          console.log("Voice recorder plugin not available:", error);
+        }
+      }
+    };
+
+    loadVoiceRecorder();
+  }, []);
 
   // Request native microphone permission
   const requestNativePermission = async () => {
@@ -279,7 +284,7 @@ const RecordVoicePage = () => {
     };
 
     checkPermissions();
-  }, [permissionChecked]);
+  }, [permissionChecked, VoiceRecorder]);
 
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
