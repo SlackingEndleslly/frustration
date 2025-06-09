@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,6 @@ import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
 import { toast } from "sonner";
 import { Mic, Play, Pause, Volume2 } from "lucide-react";
-import { Capacitor } from '@capacitor/core';
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
@@ -16,9 +16,6 @@ const RecordVoicePage = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [permissionChecked, setPermissionChecked] = useState(false);
-  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -26,106 +23,12 @@ const RecordVoicePage = () => {
 
   const maxRecordingTime = 30;
 
-  // Enhanced permission request for mobile devices
-  const requestMicrophonePermission = async () => {
-    console.log("Requesting microphone permission...");
-    setIsRequestingPermission(true);
-    
-    try {
-      // For Capacitor/mobile apps, show native permission dialog
-      if (Capacitor.isNativePlatform()) {
-        console.log("Running on native platform, requesting native permissions");
-        
-        // Force permission request through getUserMedia which triggers native dialog
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: 44100
-            } 
-          });
-          
-          // Stop the stream immediately after getting permission
-          stream.getTracks().forEach(track => track.stop());
-          setPermissionGranted(true);
-          toast.success("Microphone permission granted!");
-          return true;
-        } catch (error: any) {
-          console.error("Native permission request failed:", error);
-          
-          if (error.name === 'NotAllowedError') {
-            toast.error("Microphone access denied. Please go to your device settings and enable microphone access for this app.");
-          } else if (error.name === 'NotFoundError') {
-            toast.error("No microphone found on this device.");
-          } else {
-            toast.error("Could not access microphone. Please check your device settings and allow microphone permissions.");
-          }
-          setPermissionGranted(false);
-          return false;
-        }
-      } else {
-        // Web browser permission request
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: 44100
-            } 
-          });
-          
-          stream.getTracks().forEach(track => track.stop());
-          setPermissionGranted(true);
-          toast.success("Microphone permission granted!");
-          return true;
-        } catch (error: any) {
-          console.error("Web permission request failed:", error);
-          
-          if (error.name === 'NotAllowedError') {
-            toast.error("Microphone access denied. Please allow microphone permissions in your browser.");
-          } else if (error.name === 'NotFoundError') {
-            toast.error("No microphone found on this device.");
-          } else {
-            toast.error("Could not access microphone. Please check your browser settings.");
-          }
-          setPermissionGranted(false);
-          return false;
-        }
-      }
-    } finally {
-      setIsRequestingPermission(false);
-    }
-  };
-
-  // Start recording
   const startRecording = async () => {
-    console.log("Starting recording...");
-    
-    // Always request permission when starting recording
-    const granted = await requestMicrophonePermission();
-    if (!granted) {
-      return;
-    }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
       audioChunksRef.current = [];
-      
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      });
-      
+      const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
@@ -135,21 +38,17 @@ const RecordVoicePage = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mediaRecorder.mimeType 
-        });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        
         stream.getTracks().forEach(track => track.stop());
         toast.success("Recording completed!");
       };
 
-      mediaRecorder.start(100);
+      mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
 
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
           const newTime = prev + 1;
@@ -163,75 +62,22 @@ const RecordVoicePage = () => {
 
       toast.success("Recording started!");
     } catch (error) {
-      console.error("Error starting recording:", error);
-      setIsRecording(false);
-      toast.error("Failed to start recording. Please ensure microphone permissions are granted.");
+      console.error("Error accessing microphone:", error);
+      toast.error("Could not access microphone. Please allow microphone permissions.");
     }
   };
 
-  // Stop recording
-  const stopRecording = async () => {
-    console.log("Stopping recording...");
-    
+  const stopRecording = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
-    try {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-      }
-    } catch (error) {
-      console.error("Error stopping recording:", error);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
-      toast.error("Error stopping recording.");
     }
   };
-
-  // Check permissions on mount
-  useEffect(() => {
-    const checkPermissions = async () => {
-      if (!permissionChecked) {
-        setPermissionChecked(true);
-        
-        try {
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.error("getUserMedia not supported");
-            setPermissionGranted(false);
-            return;
-          }
-
-          // For mobile/native platforms, don't pre-check permissions
-          // This prevents issues with permission state checking
-          if (Capacitor.isNativePlatform()) {
-            console.log("Native platform detected, will request permission on record");
-            setPermissionGranted(false);
-            return;
-          }
-
-          // For web, try to check permission status
-          try {
-            const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-            if (permissionStatus.state === 'granted') {
-              setPermissionGranted(true);
-              return;
-            }
-          } catch (e) {
-            console.log("Permission query not supported, will request on record");
-          }
-          
-          setPermissionGranted(false);
-        } catch (error) {
-          console.error("Error checking permissions:", error);
-          setPermissionGranted(false);
-        }
-      }
-    };
-
-    checkPermissions();
-  }, [permissionChecked]);
 
   useEffect(() => {
     if (audioUrl && !audioRef.current) {
@@ -257,11 +103,7 @@ const RecordVoicePage = () => {
         clearInterval(timerRef.current);
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (error) {
-          console.error("Error stopping media recorder:", error);
-        }
+        mediaRecorderRef.current.stop();
       }
       if (audioRef.current) {
         audioRef.current.pause();
@@ -276,17 +118,11 @@ const RecordVoicePage = () => {
         audioRef.current.pause();
         setIsPaused(true);
       } else if (isPaused) {
-        audioRef.current.play().catch(err => {
-          console.error("Error playing audio:", err);
-          toast.error("Could not play audio. Please try again.");
-        });
+        audioRef.current.play();
         setIsPaused(false);
       } else {
         audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(err => {
-          console.error("Error playing audio:", err);
-          toast.error("Could not play audio. Please try again.");
-        });
+        audioRef.current.play();
         setIsPlaying(true);
         setIsPaused(false);
       }
@@ -329,38 +165,13 @@ const RecordVoicePage = () => {
 
           <div className="flex flex-col items-center gap-4">
             {!audioUrl && !isRecording && (
-              <div className="w-full space-y-4">
-                <Button 
-                  onClick={startRecording}
-                  className="rage-button w-full flex items-center justify-center gap-2"
-                  disabled={isRequestingPermission}
-                >
-                  <Mic className="h-5 w-5" />
-                  <span>{isRequestingPermission ? "Requesting Permission..." : "Record Your Frustration"}</span>
-                </Button>
-                
-                {Capacitor.isNativePlatform() && !permissionGranted && (
-                  <div className="text-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <p className="text-sm text-yellow-400 mb-2">
-                      📱 On mobile devices, you'll be asked to allow microphone access when you tap "Record"
-                    </p>
-                    <p className="text-xs text-yellow-300">
-                      If permission is denied, please go to your device Settings → Apps → Frustration → Permissions and enable Microphone
-                    </p>
-                  </div>
-                )}
-                
-                {!Capacitor.isNativePlatform() && !permissionGranted && (
-                  <div className="text-center p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <p className="text-sm text-blue-400 mb-2">
-                      🎤 Microphone access required for recording
-                    </p>
-                    <p className="text-xs text-blue-300">
-                      Click "Record" to grant microphone permissions
-                    </p>
-                  </div>
-                )}
-              </div>
+              <Button 
+                onClick={startRecording}
+                className="rage-button w-full flex items-center justify-center gap-2"
+              >
+                <Mic className="h-5 w-5" />
+                <span>Record Your Frustration</span>
+              </Button>
             )}
 
             {isRecording && (
@@ -418,8 +229,6 @@ const RecordVoicePage = () => {
                     }
                     setIsPlaying(false);
                     setIsPaused(false);
-                    setPermissionGranted(false);
-                    setPermissionChecked(false);
                   }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-white"

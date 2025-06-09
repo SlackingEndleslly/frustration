@@ -13,21 +13,6 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true
     }
-  },
-  android: {
-    permissions: [
-      'android.permission.RECORD_AUDIO',
-      'android.permission.MODIFY_AUDIO_SETTINGS',
-      'android.permission.WRITE_EXTERNAL_STORAGE',
-      'android.permission.READ_EXTERNAL_STORAGE',
-      'android.permission.INTERNET',
-      'android.permission.ACCESS_NETWORK_STATE'
-    ]
-  },
-  ios: {
-    permissions: [
-      'NSMicrophoneUsageDescription'
-    ]
   }
 };
 
