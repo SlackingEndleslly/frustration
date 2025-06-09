@@ -32,11 +32,12 @@ const RecordVoicePage = () => {
     const loadVoiceRecorder = async () => {
       if (Capacitor.isNativePlatform()) {
         try {
-          const module = await import('@capacitor-community/voice-recorder');
-          setVoiceRecorder(module.VoiceRecorder);
+          const { VoiceRecorder: VR } = await import('@capacitor-community/voice-recorder');
+          setVoiceRecorder(VR);
           console.log("Voice recorder plugin loaded successfully");
         } catch (error) {
           console.log("Voice recorder plugin not available:", error);
+          setVoiceRecorder(null);
         }
       }
     };
@@ -90,7 +91,7 @@ const RecordVoicePage = () => {
       setPermissionGranted(true);
       toast.success("Microphone permission granted!");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Web microphone permission denied:", error);
       setPermissionGranted(false);
       
