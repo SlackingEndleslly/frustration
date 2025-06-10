@@ -30,7 +30,7 @@ const VICTORY_MESSAGE = "Buddy defeated! Your rage has been vented!";
 
 const GamePage = () => {
   const navigate = useNavigate();
-  const { buddyImage, health, maxHealth, damage, resetGame, isGameOver, voiceRecording } = useGame();
+  const { buddyImage, health, maxHealth, damage, resetGame, isGameOver } = useGame();
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeAttack, setActiveAttack] = useState<string | null>(null);
   const [showPunchEffect, setShowPunchEffect] = useState(false);
@@ -276,7 +276,7 @@ const GamePage = () => {
               className="rage-button flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
             >
               <RotateCcw className="h-4 w-4" />
-              <span>Rehit Buddy</span>
+              <span>Play Again</span>
             </Button>
             
             <Button 
@@ -284,11 +284,11 @@ const GamePage = () => {
               className="rage-button flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700"
             >
               <Home className="h-4 w-4" />
-              <span>Home</span>
+              <span>Go Home</span>
             </Button>
           </div>
         ) : (
-          <div className="flex justify-between mt-6">
+          <div className="flex justify-center mt-6">
             <Button 
               onClick={(e) => {
                 e.preventDefault();
@@ -300,17 +300,6 @@ const GamePage = () => {
             >
               Back to Home
             </Button>
-            <Button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                navigate("/record-voice");
-              }}
-              variant="outline"
-              className="px-4"
-            >
-              Change Voice
-            </Button>
           </div>
         )}
       </div>
@@ -318,6 +307,33 @@ const GamePage = () => {
       <audio ref={audioRef} preload="auto" />
     </Layout>
   );
+};
+
+const getHealthColor = () => {
+  const percentage = (health / maxHealth) * 100;
+  if (percentage > 60) return "bg-green-500";
+  if (percentage > 30) return "bg-yellow-500";
+  return "bg-rage-danger";
+};
+
+const handleGoHome = (e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  navigate("/");
+};
+
+const handlePlayAgain = (e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  resetGame();
+  setShowVictoryMessage(false);
+  setIsAnimating(false);
+  setActiveAttack(null);
+  setShowPunchEffect(false);
+  setShowKickEffect(false);
+  
+  toast.info("Buddy reset! Keep venting your rage!");
 };
 
 export default GamePage;

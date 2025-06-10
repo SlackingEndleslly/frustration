@@ -9,10 +9,12 @@ export type BuddyImage = {
 
 type GameContextType = {
   buddyImage: BuddyImage | null;
+  voiceRecording: string | null;
   health: number;
   maxHealth: number;
   isGameOver: boolean;
   setBuddyImage: (image: BuddyImage) => void;
+  setVoiceRecording: (audioUrl: string) => void;
   damage: (amount: number) => void;
   resetGame: () => void;
 };
@@ -22,6 +24,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export const GameProvider = ({ children }: { children: ReactNode }) => {
   const maxHealth = 100;
   const [buddyImage, setBuddyImage] = useState<BuddyImage | null>(null);
+  const [voiceRecording, setVoiceRecording] = useState<string | null>(null);
   const [health, setHealth] = useState(maxHealth);
 
   const damage = (amount: number) => {
@@ -33,17 +36,18 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   const resetGame = () => {
     setHealth(maxHealth);
-    // Silently reset without notifications
   };
 
   return (
     <GameContext.Provider
       value={{
         buddyImage,
+        voiceRecording,
         health,
         maxHealth,
         isGameOver: health <= 0,
         setBuddyImage,
+        setVoiceRecording,
         damage,
         resetGame,
       }}
