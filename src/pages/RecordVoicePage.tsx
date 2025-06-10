@@ -14,11 +14,13 @@ const RecordVoicePage = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Redirect if no buddy selected
   if (!buddyImage) {
@@ -27,20 +29,110 @@ const RecordVoicePage = () => {
     return null;
   }
 
-  const startRecording = async () => {
+  const requestMicrophonePermission = async () => {
     try {
-      console.log("Starting recording...");
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      console.log("Requesting microphone permission...");
+      
+      // Check if navigator.permissions is supported
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        console.log("Current microphone permission:", permission.state);
+        
+        if (permission.state === 'denied') {
+          toast.error("Microphone permission is denied. Please enable it in your browser settings.");
+          setPermissionGranted(false);
+          return false;
+        }
+      }
+
+      // Try to get user media with different constraints for better compatibility
+      const constraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100
+          autoGainControl: true,
+          sampleRate: { ideal: 44100, min: 8000 },
+          channelCount: { ideal: 1 }
         }
-      });
+      };
+
+      console.log("Attempting to access microphone with constraints:", constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      console.log("Microphone access granted successfully");
+      setPermissionGranted(true);
+      
+      // Store the stream reference
+      streamRef.current = stream;
+      
+      // Start recording immediately
+      startRecordingWithStream(stream);
+      
+      return true;
+    } catch (error: any) {
+      console.error("Microphone access error:", error);
+      
+      // Try with simpler constraints as fallback
+      try {
+        console.log("Trying with simpler audio constraints...");
+        const simpleStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Microphone access granted with simple constraints");
+        setPermissionGranted(true);
+        streamRef.current = simpleStream;
+        startRecordingWithStream(simpleStream);
+        return true;
+      } catch (fallbackError: any) {
+        console.error("Fallback microphone access failed:", fallbackError);
+        
+        let errorMessage = "Could not access microphone. ";
+        
+        if (fallbackError.name === 'NotAllowedError' || fallbackError.name === 'PermissionDeniedError') {
+          errorMessage += "Please allow microphone access when prompted and try again.";
+        } else if (fallbackError.name === 'NotFoundError') {
+          errorMessage += "No microphone found on this device.";
+        } else if (fallbackError.name === 'NotReadableError') {
+          errorMessage += "Microphone is being used by another application.";
+        } else {
+          errorMessage += "Please check your microphone settings and try again.";
+        }
+        
+        toast.error(errorMessage);
+        setPermissionGranted(false);
+        return false;
+      }
+    }
+  };
+
+  const startRecordingWithStream = (stream: MediaStream) => {
+    try {
+      console.log("Starting recording with stream...");
+      
+      // Check available MIME types
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/wav'
+      ];
+      
+      let selectedMimeType = '';
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          console.log("Using MIME type:", mimeType);
+          break;
+        }
+      }
+      
+      if (!selectedMimeType) {
+        console.warn("No supported MIME type found, using default");
+      }
       
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        mimeType: selectedMimeType || undefined
       });
+      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -54,7 +146,7 @@ const RecordVoicePage = () => {
       mediaRecorder.onstop = () => {
         console.log("Recording stopped, processing audio...");
         const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mediaRecorder.mimeType || 'audio/wav'
+          type: selectedMimeType || 'audio/wav'
         });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
@@ -62,13 +154,26 @@ const RecordVoicePage = () => {
         console.log("Audio recording saved:", url);
         
         // Stop all tracks
-        stream.getTracks().forEach(track => {
-          track.stop();
-          console.log("Audio track stopped");
-        });
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => {
+            track.stop();
+            console.log("Audio track stopped");
+          });
+          streamRef.current = null;
+        }
       };
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.onerror = (event: any) => {
+        console.error("MediaRecorder error:", event.error);
+        toast.error("Recording failed. Please try again.");
+        setIsRecording(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+
+      mediaRecorder.start(100); // Collect data every 100ms for better reliability
       setIsRecording(true);
       setRecordingTime(0);
       
@@ -86,8 +191,16 @@ const RecordVoicePage = () => {
       toast.success("Recording started! Speak for up to 30 seconds.");
       console.log("Recording started successfully");
     } catch (error) {
-      console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please allow microphone access and try again.");
+      console.error("Error starting recording:", error);
+      toast.error("Could not start recording. Please try again.");
+      setIsRecording(false);
+    }
+  };
+
+  const startRecording = async () => {
+    const success = await requestMicrophonePermission();
+    if (!success) {
+      console.log("Failed to get microphone permission");
     }
   };
 
@@ -131,6 +244,7 @@ const RecordVoicePage = () => {
     setAudioUrl(null);
     setVoiceRecording("");
     setRecordingTime(0);
+    setPermissionGranted(null);
     toast.info("Recording cleared. You can record again.");
     console.log("Recording reset");
   };
@@ -223,6 +337,13 @@ const RecordVoicePage = () => {
                   Record Again
                 </Button>
               </div>
+            </div>
+          )}
+
+          {permissionGranted === false && (
+            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              <p className="mb-2">Microphone access is required to record your voice.</p>
+              <p>Please check your browser settings and allow microphone access.</p>
             </div>
           )}
         </div>
