@@ -78,28 +78,35 @@ const GamePage = () => {
     
     if (isAnimating || isGameOver) return;
     
+    console.log(`Attack ${attackId} triggered`);
+    
     setActiveAttack(attackId);
     setIsAnimating(true);
     
-    // Show appropriate effect immediately - no delay
-    if (attackId === "punch") {
-      setShowPunchEffect(true);
-      setShowKickEffect(false);
-    } else if (attackId === "kick") {
-      setShowKickEffect(true);
-      setShowPunchEffect(false);
-    }
+    // Clear any existing effects first
+    setShowPunchEffect(false);
+    setShowKickEffect(false);
+    
+    // Show appropriate effect immediately
+    setTimeout(() => {
+      if (attackId === "punch") {
+        console.log("Showing punch effect");
+        setShowPunchEffect(true);
+      } else if (attackId === "kick") {
+        console.log("Showing kick effect");
+        setShowKickEffect(true);
+      }
+    }, 50);
     
     try {
-      // Play sound immediately - create new audio instance for instant playback
+      // Play sound immediately
       const audio = new Audio();
       audio.preload = 'auto';
       audio.volume = 0.7;
-      
-      // Set source and play immediately
       audio.src = soundUrl;
       audio.play().catch(() => {
-        // Fallback to Web Audio API for instant response
+        console.log("Audio playback failed, using fallback");
+        // Fallback to Web Audio API
         try {
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = audioContext.createOscillator();
@@ -108,9 +115,7 @@ const GamePage = () => {
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
           
-          // Different frequencies for punch vs kick
           if (attackId === "kick") {
-            // Lower, thumpier sound for kick
             oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
             oscillator.type = 'square';
             gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
@@ -118,7 +123,6 @@ const GamePage = () => {
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.4);
           } else {
-            // Higher, snappier sound for punch
             oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
             oscillator.type = 'square';
             gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -131,17 +135,18 @@ const GamePage = () => {
         }
       });
       
-      // Apply damage after a short delay
+      // Apply damage after a delay
       setTimeout(() => {
         damage(damageAmount);
         
-        // Reset animation states after a delay
+        // Reset animation states after effects have shown
         setTimeout(() => {
           setIsAnimating(false);
           setActiveAttack(null);
           setShowPunchEffect(false);
           setShowKickEffect(false);
-        }, 400);
+          console.log("Attack animation reset");
+        }, 800);
       }, 200);
     } catch (error) {
       console.error("Error during attack:", error);
@@ -160,8 +165,8 @@ const GamePage = () => {
   };
   
   const handleGoHome = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default form submission behavior
-    e.stopPropagation(); // Stop event propagation to prevent navigation issues
+    e.preventDefault();
+    e.stopPropagation();
     navigate("/");
   };
   
@@ -169,7 +174,6 @@ const GamePage = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Reset the game state completely
     resetGame();
     setShowVictoryMessage(false);
     setIsAnimating(false);
@@ -216,24 +220,26 @@ const GamePage = () => {
               />
             )}
             
-            {/* Punch effect overlay */}
+            {/* Punch effect overlay - ensure it's always visible when active */}
             {showPunchEffect && (
-              <div className="punch-effect-container">
+              <div className="punch-effect-container" style={{ zIndex: 50 }}>
                 <img 
                   src="/lovable-uploads/c6450c89-e7ac-431f-b053-731d8f0f1e84.png" 
                   alt="Punch Effect" 
                   className="punch-effect"
+                  style={{ opacity: 1, visibility: 'visible' }}
                 />
               </div>
             )}
             
-            {/* Kick effect overlay */}
+            {/* Kick effect overlay - ensure it's always visible when active */}
             {showKickEffect && (
-              <div className="kick-effect-container">
+              <div className="kick-effect-container" style={{ zIndex: 50 }}>
                 <img 
                   src="/lovable-uploads/7a3289de-ebb0-4cd8-a948-00edc6e3c549.png" 
                   alt="Kick Effect" 
                   className="kick-effect"
+                  style={{ opacity: 1, visibility: 'visible' }}
                 />
               </div>
             )}
@@ -307,33 +313,6 @@ const GamePage = () => {
       <audio ref={audioRef} preload="auto" />
     </Layout>
   );
-};
-
-const getHealthColor = () => {
-  const percentage = (health / maxHealth) * 100;
-  if (percentage > 60) return "bg-green-500";
-  if (percentage > 30) return "bg-yellow-500";
-  return "bg-rage-danger";
-};
-
-const handleGoHome = (e: React.MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  navigate("/");
-};
-
-const handlePlayAgain = (e: React.MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  resetGame();
-  setShowVictoryMessage(false);
-  setIsAnimating(false);
-  setActiveAttack(null);
-  setShowPunchEffect(false);
-  setShowKickEffect(false);
-  
-  toast.info("Buddy reset! Keep venting your rage!");
 };
 
 export default GamePage;

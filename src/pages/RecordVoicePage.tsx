@@ -29,29 +29,46 @@ const RecordVoicePage = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Starting recording...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
       
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log("Audio data chunk received:", event.data.size);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        console.log("Recording stopped, processing audio...");
+        const audioBlob = new Blob(audioChunksRef.current, { 
+          type: mediaRecorder.mimeType || 'audio/wav'
+        });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
         setVoiceRecording(url);
+        console.log("Audio recording saved:", url);
         
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log("Audio track stopped");
+        });
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
       setRecordingTime(0);
       
@@ -67,14 +84,16 @@ const RecordVoicePage = () => {
       }, 1000);
 
       toast.success("Recording started! Speak for up to 30 seconds.");
+      console.log("Recording started successfully");
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please allow microphone access.");
+      toast.error("Could not access microphone. Please allow microphone access and try again.");
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      console.log("Stopping recording...");
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       
@@ -89,19 +108,31 @@ const RecordVoicePage = () => {
 
   const playRecording = () => {
     if (audioUrl && audioRef.current) {
+      console.log("Playing recording:", audioUrl);
       audioRef.current.src = audioUrl;
-      audioRef.current.play();
-      setIsPlaying(true);
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(err => {
+        console.error("Error playing audio:", err);
+        toast.error("Could not play recording");
+      });
       
-      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        console.log("Playback ended");
+      };
     }
   };
 
   const resetRecording = () => {
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
     setAudioUrl(null);
     setVoiceRecording("");
     setRecordingTime(0);
     toast.info("Recording cleared. You can record again.");
+    console.log("Recording reset");
   };
 
   const handleContinue = () => {
@@ -109,12 +140,29 @@ const RecordVoicePage = () => {
       toast.error("Please record your voice first!");
       return;
     }
+    console.log("Continuing to game with recording:", audioUrl);
     navigate("/play-game");
   };
 
   return (
     <Layout title="RECORD YOUR RAGE">
       <div className="rage-card max-w-md w-full mx-auto text-center">
+        {/* Show the selected buddy image */}
+        <div className="mb-6">
+          <h3 className="text-lg font-medium mb-4">Get Your Rage Out On:</h3>
+          <div className="buddy-container w-48 h-48 mx-auto mb-4">
+            <img 
+              src={buddyImage.src} 
+              alt={buddyImage.alt || "Your Selected Buddy"} 
+              className="object-cover w-full h-full"
+              onError={(e) => {
+                console.error("Error loading buddy image in record page");
+                e.currentTarget.src = "https://placehold.co/200x200/FF6B6B/ffffff?text=Your+Buddy";
+              }}
+            />
+          </div>
+        </div>
+
         <div className="mb-6">
           <p className="text-lg text-muted-foreground mb-4">
             Record your voice for up to 30 seconds to add to your rage!

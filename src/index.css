@@ -84,41 +84,48 @@
     50% { transform: translateY(-20px); }
   }
   
-  /* Attack effect styling - improved positioning and z-index */
+  /* Attack effect styling - ensure they always show */
   .attack-effect {
-    @apply absolute pointer-events-none z-20;
-    animation-duration: 0.5s;
+    @apply absolute pointer-events-none;
+    animation-duration: 0.8s;
     animation-fill-mode: forwards;
-  }
-  
-  /* Container for punch effect to ensure proper positioning */
-  .punch-effect-container {
-    @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-end;
-    animation: container-flash 0.5s ease-out;
+    z-index: 100 !important;
     opacity: 1 !important;
     visibility: visible !important;
+  }
+  
+  /* Container for punch effect */
+  .punch-effect-container {
+    @apply absolute inset-0 pointer-events-none flex items-center justify-end;
+    z-index: 100 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    animation: container-flash 0.8s ease-out;
   }
   
   .punch-effect {
     @apply max-w-[60%] max-h-[60%] pointer-events-none;
-    animation: punchAnimation 0.5s forwards;
+    animation: punchAnimation 0.8s forwards !important;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+    z-index: 100 !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
   
-  /* Container for kick effect to ensure proper positioning */
+  /* Container for kick effect */
   .kick-effect-container {
-    @apply absolute inset-0 z-30 pointer-events-none flex items-center justify-start;
-    animation: container-flash 0.5s ease-out;
+    @apply absolute inset-0 pointer-events-none flex items-center justify-start;
+    z-index: 100 !important;
     opacity: 1 !important;
     visibility: visible !important;
+    animation: container-flash 0.8s ease-out;
   }
   
   .kick-effect {
     @apply max-w-[70%] max-h-[70%] pointer-events-none;
-    animation: kickAnimation 0.5s forwards;
+    animation: kickAnimation 0.8s forwards !important;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+    z-index: 100 !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
@@ -150,15 +157,41 @@
   }
   
   @keyframes punchAnimation {
-    0% { opacity: 0; transform: translate(100px, 0) scale(0.8); }
-    50% { opacity: 1; transform: translate(0, 0) scale(1.2); }
-    100% { opacity: 0; transform: translate(-20px, 0) scale(0.9); }
+    0% { 
+      opacity: 0; 
+      transform: translate(100px, 0) scale(0.5); 
+    }
+    20% { 
+      opacity: 1; 
+      transform: translate(20px, 0) scale(1.1); 
+    }
+    60% { 
+      opacity: 1; 
+      transform: translate(0, 0) scale(1.3); 
+    }
+    100% { 
+      opacity: 0; 
+      transform: translate(-30px, 0) scale(0.8); 
+    }
   }
   
   @keyframes kickAnimation {
-    0% { opacity: 0; transform: translate(-100px, 0) scale(0.8); }
-    50% { opacity: 1; transform: translate(0, 0) scale(1.2); }
-    100% { opacity: 0; transform: translate(20px, 0) scale(0.9); }
+    0% { 
+      opacity: 0; 
+      transform: translate(-100px, 0) scale(0.5); 
+    }
+    20% { 
+      opacity: 1; 
+      transform: translate(-20px, 0) scale(1.1); 
+    }
+    60% { 
+      opacity: 1; 
+      transform: translate(0, 0) scale(1.3); 
+    }
+    100% { 
+      opacity: 0; 
+      transform: translate(30px, 0) scale(0.8); 
+    }
   }
   
   .animate-zoom {
