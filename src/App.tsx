@@ -8,7 +8,6 @@ import { GameProvider } from "./contexts/GameContext";
 
 import HomePage from "./pages/HomePage";
 import SelectBuddyPage from "./pages/SelectBuddyPage";
-import RecordVoicePage from "./pages/RecordVoicePage";
 import GamePage from "./pages/GamePage";
 import NotFound from "./pages/NotFound";
 
@@ -24,7 +23,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/select-buddy" element={<SelectBuddyPage />} />
-            <Route path="/record-voice" element={<RecordVoicePage />} />
             <Route path="/play-game" element={<GamePage />} />
             {/* Add redirect from play-page to play-game */}
             <Route path="/play-page" element={<Navigate to="/play-game" replace />} />
