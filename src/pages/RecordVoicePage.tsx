@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
-import { Mic, Square } from "lucide-react";
+import { Mic, Square, Play, Pause, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 const RecordVoicePage = () => {
@@ -12,9 +12,12 @@ const RecordVoicePage = () => {
   const { buddyImage, setVoiceRecording } = useGame();
   const [isRecording, setIsRecording] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   if (!buddyImage) {
     navigate("/select-buddy");
@@ -23,18 +26,28 @@ const RecordVoicePage = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        chunksRef.current.push(event.data);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
       };
 
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/wav' });
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(blob);
+        setRecordingUrl(url);
         setVoiceRecording(url);
         setHasRecording(true);
         
@@ -42,13 +55,13 @@ const RecordVoicePage = () => {
         stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorderRef.current.start();
+      mediaRecorder.start();
       setIsRecording(true);
       toast.success("Recording started!");
       
     } catch (error) {
+      console.error('Recording error:', error);
       toast.error("Could not access microphone");
-      setIsRecording(false);
     }
   };
 
@@ -56,7 +69,50 @@ const RecordVoicePage = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      toast.success("Recording stopped!");
     }
+  };
+
+  const playRecording = () => {
+    if (recordingUrl && !isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
+      const audio = new Audio(recordingUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+      };
+      
+      audio.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const stopPlayback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const reRecord = () => {
+    // Clean up previous recording
+    if (recordingUrl) {
+      URL.revokeObjectURL(recordingUrl);
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    
+    setRecordingUrl(null);
+    setHasRecording(false);
+    setIsPlaying(false);
+    setVoiceRecording(null);
+    toast.info("Ready to record again!");
   };
 
   const handleContinue = () => {
@@ -102,8 +158,30 @@ const RecordVoicePage = () => {
           )}
 
           {hasRecording && !isRecording && (
-            <div className="text-green-600 font-medium text-lg">
-              ✓ Voice Recorded!
+            <div className="space-y-3">
+              <div className="text-green-600 font-medium text-lg">
+                ✓ Voice Recorded!
+              </div>
+              
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  onClick={isPlaying ? stopPlayback : playRecording}
+                  className="flex items-center gap-2 px-4 py-2"
+                  variant="outline"
+                >
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {isPlaying ? "Stop" : "Play"}
+                </Button>
+                
+                <Button 
+                  onClick={reRecord}
+                  className="flex items-center gap-2 px-4 py-2"
+                  variant="outline"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Re-record
+                </Button>
+              </div>
             </div>
           )}
         </div>
