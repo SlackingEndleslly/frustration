@@ -14,6 +14,7 @@ const RecordVoicePage = () => {
   const [hasRecording, setHasRecording] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   // Redirect if no buddy selected
@@ -24,33 +25,69 @@ const RecordVoicePage = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Starting recording...");
       
+      // Simple getUserMedia call with basic audio constraints
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true 
+      });
+      
+      console.log("Got media stream:", stream);
+      streamRef.current = stream;
+      
+      // Reset chunks
       chunksRef.current = [];
+      
+      // Create MediaRecorder with basic settings
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-
+      
       mediaRecorder.ondataavailable = (event) => {
-        chunksRef.current.push(event.data);
+        console.log("Data available:", event.data);
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setVoiceRecording(url);
-        setHasRecording(true);
-        stream.getTracks().forEach(track => track.stop());
+        console.log("Recording stopped, chunks:", chunksRef.current.length);
+        
+        if (chunksRef.current.length > 0) {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+          console.log("Created audio URL:", url);
+          
+          setVoiceRecording(url);
+          setHasRecording(true);
+          toast.success("Recording saved!");
+        }
+        
+        // Clean up stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
       };
 
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        toast.error("Recording error occurred");
+      };
+
+      // Start recording
       mediaRecorder.start();
       setIsRecording(true);
+      console.log("Recording started");
       
     } catch (error) {
-      toast.error("Could not access microphone");
+      console.error("Error starting recording:", error);
+      toast.error("Could not start recording. Please check microphone permissions.");
     }
   };
 
   const stopRecording = () => {
+    console.log("Stopping recording...");
+    
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
