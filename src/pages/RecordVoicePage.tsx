@@ -4,158 +4,61 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { useGame } from "@/contexts/GameContext";
-import { Mic, Play, Square, RotateCcw } from "lucide-react";
+import { Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 
 const RecordVoicePage = () => {
   const navigate = useNavigate();
   const { buddyImage, setVoiceRecording } = useGame();
   const [isRecording, setIsRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+  const [hasRecording, setHasRecording] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   // Redirect if no buddy selected
   if (!buddyImage) {
-    toast.error("Please select a buddy first!");
     navigate("/select-buddy");
     return null;
   }
 
   const startRecording = async () => {
     try {
-      console.log("Requesting microphone access...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Simple microphone request
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true 
-      });
-      
-      console.log("Microphone access granted");
-      streamRef.current = stream;
-      
-      // Reset audio chunks
-      audioChunksRef.current = [];
-      
-      // Create MediaRecorder with simple options
+      chunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-          console.log("Audio chunk received:", event.data.size);
-        }
+        chunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
-        console.log("Recording stopped");
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
         setVoiceRecording(url);
-        
-        // Stop all tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-        }
+        setHasRecording(true);
+        stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorder.onerror = (event: any) => {
-        console.error("MediaRecorder error:", event.error);
-        toast.error("Recording failed");
-        setIsRecording(false);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      };
-
-      // Start recording
       mediaRecorder.start();
       setIsRecording(true);
-      setRecordingTime(0);
       
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          if (prev >= 30) {
-            stopRecording();
-            return 30;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-
-      toast.success("Recording started!");
-      
-    } catch (error: any) {
-      console.error("Microphone error:", error);
-      
-      let message = "Could not access microphone. ";
-      if (error.name === 'NotAllowedError') {
-        message += "Please allow microphone access and try again.";
-      } else if (error.name === 'NotFoundError') {
-        message += "No microphone found.";
-      } else {
-        message += "Please check your settings and try again.";
-      }
-      
-      toast.error(message);
+    } catch (error) {
+      toast.error("Could not access microphone");
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      console.log("Stopping recording...");
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      
-      toast.success("Recording completed!");
     }
-  };
-
-  const playRecording = () => {
-    if (audioUrl && audioRef.current) {
-      console.log("Playing recording");
-      audioRef.current.src = audioUrl;
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(err => {
-        console.error("Play error:", err);
-        toast.error("Could not play recording");
-      });
-      
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-      };
-    }
-  };
-
-  const resetRecording = () => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
-    setAudioUrl(null);
-    setVoiceRecording("");
-    setRecordingTime(0);
-    toast.info("Recording cleared");
   };
 
   const handleContinue = () => {
-    if (!audioUrl) {
+    if (!hasRecording) {
       toast.error("Please record your voice first!");
       return;
     }
@@ -165,7 +68,6 @@ const RecordVoicePage = () => {
   return (
     <Layout title="RECORD YOUR RAGE">
       <div className="rage-card max-w-md w-full mx-auto text-center">
-        {/* Show the selected buddy image */}
         <div className="mb-6">
           <h3 className="text-lg font-medium mb-4">Get Your Rage Out On:</h3>
           <div className="buddy-container w-48 h-48 mx-auto mb-4">
@@ -173,34 +75,18 @@ const RecordVoicePage = () => {
               src={buddyImage.src} 
               alt={buddyImage.alt || "Your Selected Buddy"} 
               className="object-cover w-full h-full"
-              onError={(e) => {
-                console.error("Error loading buddy image");
-                e.currentTarget.src = "https://placehold.co/200x200/FF6B6B/ffffff?text=Your+Buddy";
-              }}
             />
           </div>
         </div>
 
         <div className="mb-6">
-          <p className="text-lg text-muted-foreground mb-4">
-            Record your voice for up to 30 seconds to add to your rage!
+          <p className="text-lg text-muted-foreground mb-6">
+            Record your voice to add to your rage!
           </p>
-          
-          <div className="mb-4">
-            <div className="text-2xl font-bold text-rage mb-2">
-              {recordingTime}s / 30s
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-rage h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(recordingTime / 30) * 100}%` }}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="space-y-4 mb-6">
-          {!isRecording && !audioUrl && (
+          {!isRecording && !hasRecording && (
             <Button 
               onClick={startRecording}
               className="rage-button w-full text-lg py-6 flex items-center justify-center gap-3"
@@ -220,27 +106,9 @@ const RecordVoicePage = () => {
             </Button>
           )}
 
-          {audioUrl && !isRecording && (
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <Button 
-                  onClick={playRecording}
-                  disabled={isPlaying}
-                  className="flex-1 rage-button flex items-center justify-center gap-2"
-                >
-                  <Play className="h-5 w-5" />
-                  {isPlaying ? "Playing..." : "Play Recording"}
-                </Button>
-                
-                <Button 
-                  onClick={resetRecording}
-                  variant="outline"
-                  className="flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Record Again
-                </Button>
-              </div>
+          {hasRecording && !isRecording && (
+            <div className="text-green-600 font-medium">
+              ✓ Recording Complete!
             </div>
           )}
         </div>
@@ -257,13 +125,11 @@ const RecordVoicePage = () => {
           <Button 
             onClick={handleContinue}
             className="rage-button px-6"
-            disabled={!audioUrl}
+            disabled={!hasRecording}
           >
             Continue to Game
           </Button>
         </div>
-
-        <audio ref={audioRef} />
       </div>
     </Layout>
   );
