@@ -25,63 +25,107 @@ const RecordVoicePage = () => {
 
   const startRecording = async () => {
     try {
-      console.log("Starting recording...");
+      console.log("Starting recording on device...");
       
-      // Simple getUserMedia call with basic audio constraints
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true 
-      });
+      // Mobile-friendly audio constraints
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
+      };
       
-      console.log("Got media stream:", stream);
+      console.log("Requesting microphone access...");
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Got media stream successfully");
+      
       streamRef.current = stream;
-      
-      // Reset chunks
       chunksRef.current = [];
       
-      // Create MediaRecorder with basic settings
-      const mediaRecorder = new MediaRecorder(stream);
+      // Try different MIME types for better mobile compatibility
+      let mimeType = 'audio/webm';
+      if (!MediaRecorder.isTypeSupported('audio/webm')) {
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        } else {
+          mimeType = ''; // Use default
+        }
+      }
+      
+      console.log("Using MIME type:", mimeType);
+      
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       
       mediaRecorder.ondataavailable = (event) => {
-        console.log("Data available:", event.data);
+        console.log("Data chunk received, size:", event.data.size);
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        console.log("Recording stopped, chunks:", chunksRef.current.length);
+        console.log("Recording stopped, total chunks:", chunksRef.current.length);
         
         if (chunksRef.current.length > 0) {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const finalMimeType = mimeType || 'audio/webm';
+          const blob = new Blob(chunksRef.current, { type: finalMimeType });
+          console.log("Created blob with size:", blob.size, "type:", finalMimeType);
+          
           const url = URL.createObjectURL(blob);
-          console.log("Created audio URL:", url);
+          console.log("Created audio URL");
           
           setVoiceRecording(url);
           setHasRecording(true);
-          toast.success("Recording saved!");
+          toast.success("Voice recorded successfully!");
+        } else {
+          console.error("No audio data recorded");
+          toast.error("No audio data was recorded");
         }
         
         // Clean up stream
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current.getTracks().forEach(track => {
+            track.stop();
+            console.log("Stopped track:", track.kind);
+          });
           streamRef.current = null;
         }
       };
 
       mediaRecorder.onerror = (event) => {
         console.error("MediaRecorder error:", event);
-        toast.error("Recording error occurred");
+        toast.error("Recording failed");
+        setIsRecording(false);
       };
 
-      // Start recording
-      mediaRecorder.start();
+      // Start recording with smaller time slices for mobile
+      mediaRecorder.start(1000); // 1 second time slices
       setIsRecording(true);
-      console.log("Recording started");
+      console.log("Recording started successfully");
+      toast.success("Recording started!");
       
     } catch (error) {
-      console.error("Error starting recording:", error);
-      toast.error("Could not start recording. Please check microphone permissions.");
+      console.error("Error accessing microphone:", error);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error("Microphone access denied. Please allow microphone permissions.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found on this device.");
+      } else if (error.name === 'NotSupportedError') {
+        toast.error("Audio recording not supported on this device.");
+      } else {
+        toast.error("Could not start recording. Please try again.");
+      }
+      
+      setIsRecording(false);
     }
   };
 
@@ -91,6 +135,7 @@ const RecordVoicePage = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      console.log("Stop command sent");
     }
   };
 
@@ -118,7 +163,7 @@ const RecordVoicePage = () => {
 
         <div className="mb-6">
           <p className="text-lg text-muted-foreground mb-6">
-            Record your voice to add to your rage!
+            Tap to record your voice!
           </p>
         </div>
 
@@ -144,8 +189,8 @@ const RecordVoicePage = () => {
           )}
 
           {hasRecording && !isRecording && (
-            <div className="text-green-600 font-medium">
-              ✓ Recording Complete!
+            <div className="text-green-600 font-medium text-lg">
+              ✓ Voice Recorded!
             </div>
           )}
         </div>
